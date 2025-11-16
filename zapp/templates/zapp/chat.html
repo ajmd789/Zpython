@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket 测试</title>
+</head>
+<body>
+    <h1>群聊测试</h1>
+    <input type="text" id="messageInput" placeholder="输入消息">
+    <button onclick="sendMessage()">发送</button>
+    <ul id="messages"></ul>
+
+    <script>
+        // 建立 WebSocket 连接（注意替换为你的服务器地址）
+        const ws = new WebSocket(
+            'ws://' + window.location.host + '/ws/chat/'
+        );
+
+        // 接收服务器消息并显示
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            const messages = document.getElementById('messages');
+            const li = document.createElement('li');
+            li.textContent = data.message;
+            messages.appendChild(li);
+        };
+
+        // 发送消息到服务器
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value;
+            if (message) {
+                ws.send(JSON.stringify({
+                    'message': message
+                }));
+                input.value = '';  // 清空输入框
+            }
+        }
+    </script>
+</body>
+</html>
