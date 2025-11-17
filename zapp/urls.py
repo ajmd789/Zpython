@@ -6,4 +6,5 @@ from . import views  # 导入应用的视图
 urlpatterns = [
     # 后续添加的路由会放在这里，比如之前计划的 chat 页面路由
     path('chat/', views.chat_page, name='chat_page'),
+    path('api/timestamp/', views.timestamp_api, name='timestamp_api'),
 ]
