@@ -131,3 +131,5 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels.layers.InMemoryChannelLayer"
     }
 }
+
+ASSETS_DIR = r"C:\Users\Archimedes\Desktop\codes\StockMonster\app\src\main\assets"

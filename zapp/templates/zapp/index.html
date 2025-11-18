@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>股票代码列表</title>
+    <style>
+        /* 简单美化表格 */
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin: 20px auto;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        button {
+            padding: 6px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">股票代码列表</h1>
+    <table id="stockTable">
+        <thead>
+            <tr>
+                <th>代码(code)</th>
+                <th>名称(label)</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 表格内容将通过JS动态生成 -->
+        </tbody>
+    </table>
+
+    <script>
+        // 页面加载完成后调用接口
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // 1. 调用/getAllCodes/接口获取数据
+                const response = await fetch('/getAllCodes/');
+                const result = await response.json();
+
+                // 2. 检查接口响应是否成功
+                if (result.code !== 200) {
+                    alert('获取数据失败：' + result.message);
+                    return;
+                }
+
+                // 3. 提取txt文件的content内容（假设目录中只有一个txt文件）
+                const items = result.data.items;
+                let content = '';
+                for (const item of items) {
+                    if (item.type === 'file' && item.name.endsWith('.txt')) {
+                        content = item.content || '';  // 获取txt内容
+                        break;
+                    }
+                }
+
+                if (!content) {
+                    alert('未找到有效的txt文件内容');
+                    return;
+                }
+
+                // 4. 切割content字符串为数组（正则匹配"名称(code)"格式）
+                const stockList = [];
+                // 正则表达式：匹配"名称(代码)"，捕获名称和代码
+                const regex = /([^()]+)\((\d+)\)/g;
+                let match;
+                while ((match = regex.exec(content)) !== null) {
+                    stockList.push({
+                        label: match[1].trim(),  // 名称（去除前后空格）
+                        code: match[2].trim()   // 代码（去除前后空格）
+                    });
+                }
+
+                if (stockList.length === 0) {
+                    alert('未解析到股票数据');
+                    return;
+                }
+
+                // 5. 动态渲染表格
+                const tableBody = document.querySelector('#stockTable tbody');
+                stockList.forEach(stock => {
+                    const row = document.createElement('tr');
+                    // 代码列
+                    row.innerHTML += `<td>${stock.code}</td>`;
+                    // 名称列
+                    row.innerHTML += `<td>${stock.label}</td>`;
+                    // 操作列（按钮）
+                    row.innerHTML += `
+                        <td>
+                            <button onclick="printStock(${JSON.stringify(stock).replace(/"/g, '\'')})">
+                                获取数据
+                            </button>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error('处理数据出错：', error);
+                alert('加载失败，请刷新页面重试');
+            }
+        });
+
+        // 点击按钮时向后端请求该股票数据并在控制台打印完整返回
+        async function printStock(stock) {
+            console.log('当前行数据：', stock);
+            try {
+                // 请求后端 fetch_stock 接口，传递 code 参数
+                const resp = await fetch(`/api/fetch_stock/?code=${encodeURIComponent(stock.code)}`);
+                const json = await resp.json();
+                console.log('接口返回（完整）：', json);
+
+                if (json.code !== 200) {
+                    console.error('获取股票数据失败：', json.message);
+                    return;
+                }
+
+                // 如果需要也可以展示在页面上，例如弹窗或表格（这里仅打印）
+                console.log('股票数据', json.data);
+            } catch (err) {
+                console.error('调用后端接口失败：', err);
+            }
+        }
+    </script>
+</body>
+</html>
