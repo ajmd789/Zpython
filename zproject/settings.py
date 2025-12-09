@@ -132,4 +132,4 @@ CHANNEL_LAYERS = {
     }
 }
 
-ASSETS_DIR = r"C:\Users\Archimedes\Desktop\codes\StockMonster\app\src\main\assets"
+ASSETS_DIR = Path(os.getenv("ASSETS_DIR", BASE_DIR / "assets"))
