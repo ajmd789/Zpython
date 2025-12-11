@@ -1,0 +1,161 @@
+import os
+import sys
+import subprocess
+import time
+import platform
+from pathlib import Path
+
+# 项目配置（根据实际情况调整，当前适配你的项目）
+PROJECT_NAME = "zpython_django"  # 打包后可执行文件名
+DJANGO_ENTRY = "manage.py"       # Django入口文件
+PORT = 5555                      # 部署端口
+CHECK_URL = f"http://127.0.0.1:{PORT}/index/"  # 服务校验URL
+ASSETS_DIR = "assets"            # 静态资源目录（需放在项目根目录）
+DB_FILE = "db.sqlite3"           # 数据库文件
+SCRIPTS_TO_PACK = ["扫描.py", "扫描全部.py"]  # 需额外打包的业务脚本
+
+# 跨平台配置
+SYSTEM = platform.system()
+VENV_PYTHON = Path("venv") / ("Scripts" if SYSTEM == "Windows" else "bin") / ("python.exe" if SYSTEM == "Windows" else "python3")
+PYINSTALLER_ADD_DATA_SEP = ";" if SYSTEM == "Windows" else ":"  # Windows用;，Linux用:
+CLEAR_CMD = "rm -rf build dist __pycache__ *.spec" if SYSTEM == "Linux" else "del /f /s /q build dist __pycache__ *.spec"
+
+def run_cmd(cmd, desc="执行命令"):
+    """跨平台执行命令，带日志输出"""
+    print(f"\n=== {desc} ===")
+    print(f"命令：{cmd}")
+    result = subprocess.run(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8"
+    )
+    if result.returncode == 0:
+        print(f"成功：{result.stdout[:200]}...")  # 只打印前200字符，避免输出过长
+        return True
+    else:
+        print(f"失败：{result.stderr}")
+        return False
+
+def clear_old_build():
+    """清理旧打包产物"""
+    return run_cmd(CLEAR_CMD, "清理旧打包产物")
+
+def install_deps():
+    """安装依赖（含PyInstaller）"""
+    deps_cmd = f"{VENV_PYTHON} -m pip install --upgrade pip && {VENV_PYTHON} -m pip install -r requirements.txt pyinstaller"
+    return run_cmd(deps_cmd, "安装项目依赖和打包工具")
+
+def package_django():
+    """打包Django主程序（含Channels依赖）"""
+    # 构建add-data参数（携带数据库、静态资源）
+    add_data = [
+        f"{DB_FILE}{PYINSTALLER_ADD_DATA_SEP}.",
+        f"{ASSETS_DIR}{PYINSTALLER_ADD_DATA_SEP}{ASSETS_DIR}"
+    ]
+    add_data_str = " ".join([f"--add-data \"{item}\"" for item in add_data])
+
+    # 隐藏导入（适配Channels/Twisted）
+    hidden_imports = [
+        "zapp", "channels", "channels.layers", "daphne", "twisted",
+        "twisted.internet", "twisted.web", "zope.interface"
+    ]
+    hidden_import_str = " ".join([f"--hidden-import {item}" for item in hidden_imports])
+
+    # PyInstaller打包命令
+    package_cmd = (
+        f"{VENV_PYTHON} -m PyInstaller "
+        f"--name {PROJECT_NAME} "
+        f"--onefile "
+        f"--clean "
+        f"{hidden_import_str} "
+        f"{add_data_str} "
+        f"{DJANGO_ENTRY}"
+    )
+    return run_cmd(package_cmd, "打包Django主程序")
+
+def package_scripts():
+    """打包业务脚本（扫描.py、扫描全部.py）"""
+    for script in SCRIPTS_TO_PACK:
+        if not Path(script).exists():
+            print(f"警告：{script}不存在，跳过打包")
+            continue
+        script_name = Path(script).stem  # 去除后缀，作为可执行文件名
+        package_cmd = (
+            f"{VENV_PYTHON} -m PyInstaller "
+            f"--name {script_name} "
+            f"--onefile "
+            f"--clean "
+            f"{script}"
+        )
+        if not run_cmd(package_cmd, f"打包业务脚本：{script}"):
+            return False
+    return True
+
+def start_service():
+    """启动Django服务（后台运行，避免阻塞脚本）"""
+    exe_path = Path("dist") / (f"{PROJECT_NAME}.exe" if SYSTEM == "Windows" else PROJECT_NAME)
+    if not exe_path.exists():
+        print(f"错误：打包产物不存在：{exe_path}")
+        return False
+
+    # 启动命令（后台运行）
+    if SYSTEM == "Windows":
+        # Windows后台运行（隐藏cmd窗口）
+        start_cmd = f"start /b {exe_path} runserver 0.0.0.0:{PORT} --noreload"
+    else:
+        # Linux后台运行（nohup）
+        start_cmd = f"nohup {exe_path} runserver 0.0.0.0:{PORT} --noreload > dist/server.log 2>&1 &"
+    
+    return run_cmd(start_cmd, f"启动服务到{PORT}端口")
+
+def check_port_service():
+    """检查5555端口是否有服务，且服务可正常访问"""
+    print(f"\n=== 检查{PORT}端口服务 ===")
+    time.sleep(5)  # 等待服务启动（可根据项目启动速度调整）
+
+    # 1. 检查端口是否被占用
+    if SYSTEM == "Windows":
+        port_check_cmd = f"netstat -ano | findstr :{PORT}"
+    else:
+        port_check_cmd = f"ss -tulpn | grep :{PORT} || netstat -tulpn | grep :{PORT}"
+    
+    if not run_cmd(port_check_cmd, "检查端口是否占用"):
+        print(f"错误：{PORT}端口无服务运行")
+        return False
+
+    # 2. 检查服务是否正常响应
+    try:
+        import requests
+        response = requests.get(CHECK_URL, timeout=10)
+        if response.status_code == 200:
+            print(f"成功：{CHECK_URL} 响应正常（状态码200）")
+            return True
+        else:
+            print(f"失败：{CHECK_URL} 响应状态码：{response.status_code}")
+            return False
+    except Exception as e:
+        print(f"失败：访问{CHECK_URL}出错：{str(e)}")
+        return False
+
+def main():
+    """主流程：清理→安装依赖→打包→启动→校验"""
+    print("===== 开始跨平台打包部署流程 =====")
+    steps = [
+        ("清理旧产物", clear_old_build),
+        ("安装依赖", install_deps),
+        ("打包Django", package_django),
+        ("打包业务脚本", package_scripts),
+        ("启动服务", start_service),
+        ("校验服务", check_port_service)
+    ]
+
+    for step_name, step_func in steps:
+        if not step_func():
+            print(f"\n===== 流程终止：{step_name}失败 =====")
+            sys.exit(1)
+
+    print(f"\n===== 全流程成功！ =====")
+    print(f"服务已部署到：{CHECK_URL}")
+    print(f"Django打包产物：dist/{PROJECT_NAME}（{SYSTEM}可执行文件）")
+    print(f"业务脚本产物：dist/（{', '.join(SCRIPTS_TO_PACK)}对应的可执行文件）")
+
+if __name__ == "__main__":
+    main()
