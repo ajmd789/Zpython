@@ -54,7 +54,7 @@ def get_directory_contents(target_dir):
         return {
             "code": 200,
             "data": {
-                "directory": target_dir,
+                "directory": str(target_dir),
                 "count": len(items_detail),
                 "items": items_detail
             },
