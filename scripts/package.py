@@ -16,6 +16,12 @@ ASSETS_DIR = "assets"            # 静态资源目录
 DB_FILE = "db.sqlite3"           # 数据库文件
 SCRIPTS_TO_PACK = ["扫描.py", "扫描全部.py"]  # 需额外打包的业务脚本
 
+# Gunicorn配置（生产环境）
+GUNICORN_WORKERS = 2             # Worker数量（建议为CPU核心数的1-2倍）
+GUNICORN_TIMEOUT = 30            # 超时时间（秒）
+GUNICORN_BIND = f"0.0.0.0:{PORT}"  # 绑定地址和端口
+WSGI_MODULE = "zproject.wsgi:application"  # WSGI应用模块路径
+
 # 跨平台配置
 SYSTEM = platform.system()
 VENV_PYTHON = Path("venv") / ("Scripts" if SYSTEM == "Windows" else "bin") / ("python.exe" if SYSTEM == "Windows" else "python3")
@@ -93,10 +99,13 @@ def package_django():
     ]
     add_data_str = " ".join([f"--add-data \"{item}\"" for item in add_data])
 
-    # 隐藏导入（适配Channels/Twisted）
+    # 隐藏导入（适配Channels/Twisted/Gunicorn）
     hidden_imports = [
         "zapp", "channels", "channels.layers", "daphne", "twisted",
-        "twisted.internet", "twisted.web", "zope.interface"
+        "twisted.internet", "twisted.web", "zope.interface",
+        "gunicorn", "gunicorn.app.wsgiapp", "gunicorn.workers.sync",
+        "gunicorn.workers.gthread", "gunicorn.workers.gevent",
+        "gunicorn.arbiter", "gunicorn.config"
     ]
     hidden_import_str = " ".join([f"--hidden-import {item}" for item in hidden_imports])
 
@@ -130,6 +139,68 @@ def package_scripts():
             return False
     return True
 
+def generate_startup_scripts():
+    """生成生产环境启动脚本"""
+    # 生成Linux启动脚本（gunicorn）
+    linux_script = f"""#!/bin/bash
+# Django项目生产环境启动脚本
+
+# 进入脚本所在目录
+cd "$(dirname "$0")"
+
+echo "=== 启动Django生产服务器（Gunicorn） ==="
+echo "监听地址: {GUNICORN_BIND}"
+echo "Worker数量: {GUNICORN_WORKERS}"
+echo "超时时间: {GUNICORN_TIMEOUT}秒"
+echo ""
+
+# 使用gunicorn启动生产服务器
+./{PROJECT_NAME} gunicorn {WSGI_MODULE} \
+    --bind {GUNICORN_BIND} \
+    --workers {GUNICORN_WORKERS} \
+    --timeout {GUNICORN_TIMEOUT} \
+    --log-level info \
+    --access-logfile access.log \
+    --error-logfile error.log
+
+echo ""
+echo "=== 服务已启动 ==="
+echo "访问地址: http://$(hostname -I | awk '{{print $1}}'):{PORT}"
+"""
+    # 生成Windows启动脚本（开发用runserver）
+    windows_script = f"""@echo off
+REM Django项目启动脚本
+
+cd /d "%~dp0"
+
+echo === 启动Django服务器 ===
+echo 监听地址: {GUNICORN_BIND}
+echo.
+
+REM 使用Django开发服务器（Windows环境）
+{PROJECT_NAME}.exe runserver {GUNICORN_BIND} --noreload
+
+echo.
+echo === 服务已启动 ===
+"""
+
+    try:
+        # 保存Linux启动脚本
+        linux_script_path = Path("dist") / "start_production.sh"
+        linux_script_path.write_text(linux_script, encoding="utf-8")
+        linux_script_path.chmod(0o755)  # 添加执行权限
+        logger.info(f"生成Linux启动脚本: {linux_script_path}")
+
+        # 保存Windows启动脚本
+        windows_script_path = Path("dist") / "start_server.bat"
+        windows_script_path.write_text(windows_script, encoding="utf-8")
+        logger.info(f"生成Windows启动脚本: {windows_script_path}")
+
+        return True
+    except Exception as e:
+        logger.error(f"生成启动脚本失败: {str(e)}")
+        return False
+
 def main():
     """主流程：清理→安装依赖→打包"""
     logger.info("===== Django项目打包工具 =====")
@@ -137,7 +208,8 @@ def main():
         ("清理旧产物", clear_old_build),
         ("安装依赖", install_deps),
         ("打包Django", package_django),
-        ("打包业务脚本", package_scripts)
+        ("打包业务脚本", package_scripts),
+        ("生成启动脚本", generate_startup_scripts)
     ]
 
     for step_name, step_func in steps:
@@ -148,6 +220,12 @@ def main():
     logger.info(f"\n===== 打包成功！ =====")
     logger.info(f"Django打包产物：dist/{PROJECT_NAME}（{SYSTEM}可执行文件）")
     logger.info(f"业务脚本产物：dist/（{', '.join(SCRIPTS_TO_PACK)}对应的可执行文件）")
+    logger.info(f"启动脚本：dist/start_production.sh（Linux生产环境）、dist/start_server.bat（Windows开发环境）")
+    logger.info(f"\n生产环境启动方式：")
+    logger.info(f"  cd dist")
+    logger.info(f"  ./start_production.sh")
+    logger.info(f"\n或手动启动：")
+    logger.info(f"  ./dist/{PROJECT_NAME} gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS}")
     logger.info(f"日志文件：{LOG_FILE}")
 
 if __name__ == "__main__":

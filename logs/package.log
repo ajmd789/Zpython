@@ -29,3 +29,42 @@ Requirement already satisfied: pyinstaller in c:\users\archimedes\desktop\codes\
 2025-12-14 12:02:15,577 - INFO - Django打包产物：dist/zpython_django（Windows可执行文件）
 2025-12-14 12:02:15,578 - INFO - 业务脚本产物：dist/（扫描.py, 扫描全部.py对应的可执行文件）
 2025-12-14 12:02:15,578 - INFO - 日志文件：logs\package.log
+2025-12-14 23:05:27,181 - INFO - ===== Django项目打包工具 =====
+2025-12-14 23:05:27,181 - INFO - 
+=== 清理旧打包产物 ===
+2025-12-14 23:05:27,181 - INFO - 命令：del /f /s /q build dist __pycache__ *.spec
+2025-12-14 23:05:28,001 - INFO - 成功：ɾļ - C:\Users\Archimedes\Desktop\codes\Zpython\build\zpython_django\Analysis-00.toc
+ɾļ - C:\Users\Archimedes\Desktop\codes\Zpython\build\zpython_django\base_library.zip
+ɾļ - C:\Users\Archimedes\Deskto...
+2025-12-14 23:05:28,002 - INFO - 
+=== 安装项目依赖和打包工具 ===
+2025-12-14 23:05:28,002 - INFO - 命令：venv\Scripts\python.exe -m pip install --upgrade pip && venv\Scripts\python.exe -m pip install -r requirements.txt pyinstaller
+2025-12-14 23:05:30,310 - INFO - 成功：Requirement already satisfied: pip in c:\users\archimedes\desktop\codes\zpython\venv\lib\site-packages (25.3)
+Requirement already satisfied: pyinstaller in c:\users\archimedes\desktop\codes\zpython\ve...
+2025-12-14 23:05:30,310 - INFO - 
+=== 打包Django主程序 ===
+2025-12-14 23:05:30,310 - INFO - 命令：venv\Scripts\python.exe -m PyInstaller --name zpython_django --onefile --clean --hidden-import zapp --hidden-import channels --hidden-import channels.layers --hidden-import daphne --hidden-import twisted --hidden-import twisted.internet --hidden-import twisted.web --hidden-import zope.interface --hidden-import gunicorn --hidden-import gunicorn.app.wsgiapp --hidden-import gunicorn.workers.sync --hidden-import gunicorn.workers.gthread --hidden-import gunicorn.workers.gevent --hidden-import gunicorn.arbiter --hidden-import gunicorn.config --add-data "db.sqlite3;." --add-data "assets;assets" manage.py
+2025-12-14 23:06:01,520 - INFO - 成功：...
+2025-12-14 23:06:01,520 - INFO - 
+=== 打包业务脚本：扫描.py ===
+2025-12-14 23:06:01,520 - INFO - 命令：venv\Scripts\python.exe -m PyInstaller --name 扫描 --onefile --clean 扫描.py
+2025-12-14 23:06:04,460 - INFO - 成功：...
+2025-12-14 23:06:04,460 - INFO - 
+=== 打包业务脚本：扫描全部.py ===
+2025-12-14 23:06:04,461 - INFO - 命令：venv\Scripts\python.exe -m PyInstaller --name 扫描全部 --onefile --clean 扫描全部.py
+2025-12-14 23:06:07,453 - INFO - 成功：...
+2025-12-14 23:06:07,454 - INFO - 生成Linux启动脚本: dist\start_production.sh
+2025-12-14 23:06:07,455 - INFO - 生成Windows启动脚本: dist\start_server.bat
+2025-12-14 23:06:07,455 - INFO - 
+===== 打包成功！ =====
+2025-12-14 23:06:07,456 - INFO - Django打包产物：dist/zpython_django（Windows可执行文件）
+2025-12-14 23:06:07,456 - INFO - 业务脚本产物：dist/（扫描.py, 扫描全部.py对应的可执行文件）
+2025-12-14 23:06:07,456 - INFO - 启动脚本：dist/start_production.sh（Linux生产环境）、dist/start_server.bat（Windows开发环境）
+2025-12-14 23:06:07,457 - INFO - 
+生产环境启动方式：
+2025-12-14 23:06:07,457 - INFO -   cd dist
+2025-12-14 23:06:07,457 - INFO -   ./start_production.sh
+2025-12-14 23:06:07,457 - INFO - 
+或手动启动：
+2025-12-14 23:06:07,458 - INFO -   ./dist/zpython_django gunicorn zproject.wsgi:application --bind 0.0.0.0:5555 --workers 2
+2025-12-14 23:06:07,458 - INFO - 日志文件：logs\package.log
