@@ -2,3 +2,30 @@
 2025-12-13 20:16:18,251 - INFO - 
 === 清理旧打包产物 ===
 2025-12-13 20:16:18,251 - INFO - 命令：del /f /s /q build dist __pycache__ *.spec
+2025-12-14 12:01:33,808 - INFO - ===== Django项目打包工具 =====
+2025-12-14 12:01:33,809 - INFO - 
+=== 清理旧打包产物 ===
+2025-12-14 12:01:33,809 - INFO - 命令：del /f /s /q build dist __pycache__ *.spec
+2025-12-14 12:01:34,414 - INFO - 成功：...
+2025-12-14 12:01:34,415 - INFO - 
+=== 安装项目依赖和打包工具 ===
+2025-12-14 12:01:34,415 - INFO - 命令：venv\Scripts\python.exe -m pip install --upgrade pip && venv\Scripts\python.exe -m pip install -r requirements.txt pyinstaller
+2025-12-14 12:01:36,149 - INFO - 成功：Requirement already satisfied: pip in c:\users\archimedes\desktop\codes\zpython\venv\lib\site-packages (25.3)
+Requirement already satisfied: pyinstaller in c:\users\archimedes\desktop\codes\zpython\ve...
+2025-12-14 12:01:36,150 - INFO - 
+=== 打包Django主程序 ===
+2025-12-14 12:01:36,150 - INFO - 命令：venv\Scripts\python.exe -m PyInstaller --name zpython_django --onefile --clean --hidden-import zapp --hidden-import channels --hidden-import channels.layers --hidden-import daphne --hidden-import twisted --hidden-import twisted.internet --hidden-import twisted.web --hidden-import zope.interface --add-data "db.sqlite3;." --add-data "assets;assets" manage.py
+2025-12-14 12:02:09,440 - INFO - 成功：...
+2025-12-14 12:02:09,440 - INFO - 
+=== 打包业务脚本：扫描.py ===
+2025-12-14 12:02:09,440 - INFO - 命令：venv\Scripts\python.exe -m PyInstaller --name 扫描 --onefile --clean 扫描.py
+2025-12-14 12:02:12,511 - INFO - 成功：...
+2025-12-14 12:02:12,512 - INFO - 
+=== 打包业务脚本：扫描全部.py ===
+2025-12-14 12:02:12,512 - INFO - 命令：venv\Scripts\python.exe -m PyInstaller --name 扫描全部 --onefile --clean 扫描全部.py
+2025-12-14 12:02:15,577 - INFO - 成功：...
+2025-12-14 12:02:15,577 - INFO - 
+===== 打包成功！ =====
+2025-12-14 12:02:15,577 - INFO - Django打包产物：dist/zpython_django（Windows可执行文件）
+2025-12-14 12:02:15,578 - INFO - 业务脚本产物：dist/（扫描.py, 扫描全部.py对应的可执行文件）
+2025-12-14 12:02:15,578 - INFO - 日志文件：logs\package.log
