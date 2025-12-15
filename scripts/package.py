@@ -166,6 +166,9 @@ echo ""
 echo ""
 echo "=== 服务已启动 ==="
 echo "访问地址: http://$(hostname -I | awk '{{print $1}}'):{PORT}"
+echo ""
+echo "若要设置开机自启，请运行："
+echo "sudo ./install_systemd_service.sh"
 """
     # 生成Windows启动脚本（开发用runserver）
     windows_script = f"""@echo off
@@ -183,6 +186,47 @@ REM 使用Django开发服务器（Windows环境）
 echo.
 echo === 服务已启动 ===
 """
+    
+    # 生成systemd服务配置文件
+    systemd_service = f"""[Unit]
+Description=Zpython Django Application
+After=network.target
+
+[Service]
+User={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
+Group={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
+WorkingDirectory={os.getcwd()}/dist
+ExecStart={os.getcwd()}/dist/{PROJECT_NAME} gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS}
+Restart=always
+Environment="PATH={os.getcwd()}/venv/bin"
+
+[Install]
+WantedBy=multi-user.target
+"""
+    
+    # 生成systemd服务安装脚本
+    systemd_install_script = f"""#!/bin/bash
+# Systemd服务安装脚本
+
+echo "=== 安装Zpython Systemd服务 ==="
+
+# 复制服务文件到systemd目录
+sudo cp zpython.service /etc/systemd/system/
+
+# 重新加载systemd配置
+sudo systemctl daemon-reload
+
+# 启用服务（开机自启）
+sudo systemctl enable zpython
+
+# 启动服务
+sudo systemctl start zpython
+
+echo ""
+echo "=== Systemd服务安装完成！ ==="
+echo "服务状态："
+sudo systemctl status zpython --no-pager
+"""
 
     try:
         # 保存Linux启动脚本
@@ -195,6 +239,17 @@ echo === 服务已启动 ===
         windows_script_path = Path("dist") / "start_server.bat"
         windows_script_path.write_text(windows_script, encoding="utf-8")
         logger.info(f"生成Windows启动脚本: {windows_script_path}")
+        
+        # 保存systemd服务配置文件
+        systemd_path = Path("dist") / "zpython.service"
+        systemd_path.write_text(systemd_service, encoding="utf-8")
+        logger.info(f"生成Systemd服务配置: {systemd_path}")
+        
+        # 保存systemd服务安装脚本
+        systemd_install_path = Path("dist") / "install_systemd_service.sh"
+        systemd_install_path.write_text(systemd_install_script, encoding="utf-8")
+        systemd_install_path.chmod(0o755)  # 添加执行权限
+        logger.info(f"生成Systemd服务安装脚本: {systemd_install_path}")
 
         return True
     except Exception as e:
@@ -221,11 +276,14 @@ def main():
     logger.info(f"Django打包产物：dist/{PROJECT_NAME}（{SYSTEM}可执行文件）")
     logger.info(f"业务脚本产物：dist/（{', '.join(SCRIPTS_TO_PACK)}对应的可执行文件）")
     logger.info(f"启动脚本：dist/start_production.sh（Linux生产环境）、dist/start_server.bat（Windows开发环境）")
-    logger.info(f"\n生产环境启动方式：")
+    logger.info(f"生产环境启动方式：")
     logger.info(f"  cd dist")
     logger.info(f"  ./start_production.sh")
     logger.info(f"\n或手动启动：")
     logger.info(f"  ./dist/{PROJECT_NAME} gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS}")
+    logger.info(f"\n设置开机自启：")
+    logger.info(f"  cd dist")
+    logger.info(f"  sudo ./install_systemd_service.sh")
     logger.info(f"日志文件：{LOG_FILE}")
 
 if __name__ == "__main__":
