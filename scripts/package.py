@@ -8,13 +8,13 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 # 配置参数
-PROJECT_NAME = "zpython_django"  # 打包后可执行文件名
+PROJECT_NAME = "zpython_django"  # 项目名称
 DJANGO_ENTRY = "manage.py"       # Django入口文件
 PORT = 5555                      # 部署端口
 CHECK_URL = f"http://127.0.0.1:{PORT}/index/"  # 服务校验URL
 ASSETS_DIR = "assets"            # 静态资源目录
 DB_FILE = "db.sqlite3"           # 数据库文件
-SCRIPTS_TO_PACK = ["扫描.py", "扫描全部.py"]  # 需额外打包的业务脚本
+VENV_NAME = "venv"               # 虚拟环境名称
 
 # Gunicorn配置（生产环境）
 GUNICORN_WORKERS = 2             # Worker数量（建议为CPU核心数的1-2倍）
@@ -24,9 +24,8 @@ WSGI_MODULE = "zproject.wsgi:application"  # WSGI应用模块路径
 
 # 跨平台配置
 SYSTEM = platform.system()
-VENV_PYTHON = Path("venv") / ("Scripts" if SYSTEM == "Windows" else "bin") / ("python.exe" if SYSTEM == "Windows" else "python3")
-PYINSTALLER_ADD_DATA_SEP = ";" if SYSTEM == "Windows" else ":"  # Windows用;，Linux用:
-CLEAR_CMD = "rm -rf build dist __pycache__ *.spec" if SYSTEM == "Linux" else "del /f /s /q build dist __pycache__ *.spec"
+VENV_PYTHON = Path(VENV_NAME) / ("Scripts" if SYSTEM == "Windows" else "bin") / ("python.exe" if SYSTEM == "Windows" else "python3")
+VENV_GUNICORN = Path(VENV_NAME) / ("Scripts" if SYSTEM == "Windows" else "bin") / "gunicorn"
 
 # 日志配置
 LOG_DIR = Path("logs")
@@ -81,72 +80,41 @@ def run_cmd(cmd, desc="执行命令"):
         logger.error(f"执行命令时出错：{str(e)}")
         return False
 
-def clear_old_build():
-    """清理旧打包产物"""
-    return run_cmd(CLEAR_CMD, "清理旧打包产物")
+def generate_requirements():
+    """生成requirements.txt文件"""
+    try:
+        # 获取项目根目录
+        project_root = Path(__file__).parent.parent
+        requirements_path = project_root / "requirements.txt"
+        
+        # 生成requirements.txt
+        cmd = f"pip freeze > {requirements_path}"
+        return run_cmd(cmd, "生成requirements.txt")
+    except Exception as e:
+        logger.error(f"生成requirements.txt失败：{str(e)}")
+        return False
+
+def create_venv():
+    """创建虚拟环境"""
+    venv_cmd = f"python -m venv {VENV_NAME}"
+    return run_cmd(venv_cmd, "创建虚拟环境")
 
 def install_deps():
-    """安装依赖（含PyInstaller）"""
-    deps_cmd = f"{VENV_PYTHON} -m pip install --upgrade pip && {VENV_PYTHON} -m pip install -r requirements.txt pyinstaller"
-    return run_cmd(deps_cmd, "安装项目依赖和打包工具")
+    """安装项目依赖"""
+    deps_cmd = f"{VENV_PYTHON} -m pip install --upgrade pip && {VENV_PYTHON} -m pip install -r requirements.txt gunicorn"
+    return run_cmd(deps_cmd, "安装项目依赖和gunicorn")
 
-def package_django():
-    """打包Django主程序（含Channels依赖）"""
-    # 构建add-data参数（携带数据库、静态资源）
-    add_data = [
-        f"{DB_FILE}{PYINSTALLER_ADD_DATA_SEP}.",
-        f"{ASSETS_DIR}{PYINSTALLER_ADD_DATA_SEP}{ASSETS_DIR}"
-    ]
-    add_data_str = " ".join([f"--add-data \"{item}\"" for item in add_data])
-
-    # 隐藏导入（适配Channels/Twisted/Gunicorn）
-    hidden_imports = [
-        "zapp", "channels", "channels.layers", "daphne", "twisted",
-        "twisted.internet", "twisted.web", "zope.interface",
-        "gunicorn", "gunicorn.app.wsgiapp", "gunicorn.workers.sync",
-        "gunicorn.workers.gthread", "gunicorn.workers.gevent",
-        "gunicorn.arbiter", "gunicorn.config"
-    ]
-    hidden_import_str = " ".join([f"--hidden-import {item}" for item in hidden_imports])
-
-    # PyInstaller打包命令
-    package_cmd = (
-        f"{VENV_PYTHON} -m PyInstaller "
-        f"--name {PROJECT_NAME} "
-        f"--onefile "
-        f"--clean "
-        f"{hidden_import_str} "
-        f"{add_data_str} "
-        f"{DJANGO_ENTRY}"
-    )
-    return run_cmd(package_cmd, "打包Django主程序")
-
-def package_scripts():
-    """打包业务脚本（扫描.py、扫描全部.py）"""
-    for script in SCRIPTS_TO_PACK:
-        if not Path(script).exists():
-            logger.warning(f"{script}不存在，跳过打包")
-            continue
-        script_name = Path(script).stem  # 去除后缀，作为可执行文件名
-        package_cmd = (
-            f"{VENV_PYTHON} -m PyInstaller "
-            f"--name {script_name} "
-            f"--onefile "
-            f"--clean "
-            f"{script}"
-        )
-        if not run_cmd(package_cmd, f"打包业务脚本：{script}"):
-            return False
-    return True
-
-def generate_startup_scripts():
-    """生成生产环境启动脚本"""
+def generate_deploy_files():
+    """生成部署相关文件"""
     # 生成Linux启动脚本（gunicorn）
     linux_script = f"""#!/bin/bash
 # Django项目生产环境启动脚本
 
 # 进入脚本所在目录
 cd "$(dirname "$0")"
+
+# 激活虚拟环境
+source ../{VENV_NAME}/bin/activate
 
 echo "=== 启动Django生产服务器（Gunicorn） ==="
 echo "监听地址: {GUNICORN_BIND}"
@@ -155,7 +123,7 @@ echo "超时时间: {GUNICORN_TIMEOUT}秒"
 echo ""
 
 # 使用gunicorn启动生产服务器
-./{PROJECT_NAME} gunicorn {WSGI_MODULE} \
+gunicorn {WSGI_MODULE} \
     --bind {GUNICORN_BIND} \
     --workers {GUNICORN_WORKERS} \
     --timeout {GUNICORN_TIMEOUT} \
@@ -170,18 +138,22 @@ echo ""
 echo "若要设置开机自启，请运行："
 echo "sudo ./install_systemd_service.sh"
 """
+    
     # 生成Windows启动脚本（开发用runserver）
     windows_script = f"""@echo off
 REM Django项目启动脚本
 
 cd /d "%~dp0"
 
+REM 激活虚拟环境
+call ..\\{VENV_NAME}\\Scripts\\activate.bat
+
 echo === 启动Django服务器 ===
 echo 监听地址: {GUNICORN_BIND}
 echo.
 
 REM 使用Django开发服务器（Windows环境）
-{PROJECT_NAME}.exe runserver {GUNICORN_BIND} --noreload
+python {DJANGO_ENTRY} runserver {GUNICORN_BIND} --noreload
 
 echo.
 echo === 服务已启动 ===
@@ -195,10 +167,9 @@ After=network.target
 [Service]
 User={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
 Group={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
-WorkingDirectory={os.getcwd()}/dist
-ExecStart={os.getcwd()}/dist/{PROJECT_NAME} gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS}
+WorkingDirectory={os.getcwd()}
+ExecStart={os.getcwd()}/{VENV_NAME}/bin/gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS} --timeout {GUNICORN_TIMEOUT}
 Restart=always
-Environment="PATH={os.getcwd()}/venv/bin"
 
 [Install]
 WantedBy=multi-user.target
@@ -229,42 +200,45 @@ sudo systemctl status zpython --no-pager
 """
 
     try:
+        # 确保dist目录存在
+        dist_dir = Path("dist")
+        dist_dir.mkdir(exist_ok=True)
+        
         # 保存Linux启动脚本
-        linux_script_path = Path("dist") / "start_production.sh"
+        linux_script_path = dist_dir / "start_production.sh"
         linux_script_path.write_text(linux_script, encoding="utf-8")
         linux_script_path.chmod(0o755)  # 添加执行权限
         logger.info(f"生成Linux启动脚本: {linux_script_path}")
 
         # 保存Windows启动脚本
-        windows_script_path = Path("dist") / "start_server.bat"
+        windows_script_path = dist_dir / "start_server.bat"
         windows_script_path.write_text(windows_script, encoding="utf-8")
         logger.info(f"生成Windows启动脚本: {windows_script_path}")
         
         # 保存systemd服务配置文件
-        systemd_path = Path("dist") / "zpython.service"
+        systemd_path = dist_dir / "zpython.service"
         systemd_path.write_text(systemd_service, encoding="utf-8")
         logger.info(f"生成Systemd服务配置: {systemd_path}")
         
         # 保存systemd服务安装脚本
-        systemd_install_path = Path("dist") / "install_systemd_service.sh"
+        systemd_install_path = dist_dir / "install_systemd_service.sh"
         systemd_install_path.write_text(systemd_install_script, encoding="utf-8")
         systemd_install_path.chmod(0o755)  # 添加执行权限
         logger.info(f"生成Systemd服务安装脚本: {systemd_install_path}")
 
         return True
     except Exception as e:
-        logger.error(f"生成启动脚本失败: {str(e)}")
+        logger.error(f"生成部署文件失败: {str(e)}")
         return False
 
 def main():
-    """主流程：清理→安装依赖→打包"""
-    logger.info("===== Django项目打包工具 =====")
+    """主流程：创建虚拟环境→安装依赖→生成部署文件"""
+    logger.info("===== Django项目部署工具 =====")
     steps = [
-        ("清理旧产物", clear_old_build),
+        ("生成requirements.txt", generate_requirements),
+        ("创建虚拟环境", create_venv),
         ("安装依赖", install_deps),
-        ("打包Django", package_django),
-        ("打包业务脚本", package_scripts),
-        ("生成启动脚本", generate_startup_scripts)
+        ("生成部署文件", generate_deploy_files)
     ]
 
     for step_name, step_func in steps:
@@ -272,19 +246,24 @@ def main():
             logger.error(f"\n===== 流程终止：{step_name}失败 =====")
             sys.exit(1)
 
-    logger.info(f"\n===== 打包成功！ =====")
-    logger.info(f"Django打包产物：dist/{PROJECT_NAME}（{SYSTEM}可执行文件）")
-    logger.info(f"业务脚本产物：dist/（{', '.join(SCRIPTS_TO_PACK)}对应的可执行文件）")
-    logger.info(f"启动脚本：dist/start_production.sh（Linux生产环境）、dist/start_server.bat（Windows开发环境）")
-    logger.info(f"生产环境启动方式：")
-    logger.info(f"  cd dist")
-    logger.info(f"  ./start_production.sh")
-    logger.info(f"\n或手动启动：")
-    logger.info(f"  ./dist/{PROJECT_NAME} gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS}")
+    logger.info(f"\n===== 部署准备成功！ =====")
+    logger.info(f"项目名称：{PROJECT_NAME}")
+    logger.info(f"虚拟环境：{VENV_NAME}")
+    logger.info(f"部署端口：{PORT}")
+    logger.info(f"\n部署文件：")
+    logger.info(f"  - 启动脚本：dist/start_production.sh（Linux生产环境）")
+    logger.info(f"  - 开发脚本：dist/start_server.bat（Windows开发环境）")
+    logger.info(f"  - Systemd配置：dist/zpython.service")
+    logger.info(f"  - Systemd安装脚本：dist/install_systemd_service.sh")
+    logger.info(f"\n生产环境部署步骤：")
+    logger.info(f"  1. 将项目文件复制到服务器")
+    logger.info(f"  2. 在服务器上执行：cd {PROJECT_NAME}")
+    logger.info(f"  3. 创建虚拟环境：python -m venv {VENV_NAME}")
+    logger.info(f"  4. 安装依赖：{VENV_NAME}/bin/pip install -r requirements.txt gunicorn")
+    logger.info(f"  5. 启动服务：cd dist && ./start_production.sh")
     logger.info(f"\n设置开机自启：")
-    logger.info(f"  cd dist")
-    logger.info(f"  sudo ./install_systemd_service.sh")
-    logger.info(f"日志文件：{LOG_FILE}")
+    logger.info(f"  cd dist && sudo ./install_systemd_service.sh")
+    logger.info(f"\n日志文件：{LOG_FILE}")
 
 if __name__ == "__main__":
     main()

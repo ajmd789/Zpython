@@ -160,3 +160,167 @@ Requirement already satisfied: pyinstaller in c:\users\archimedes\desktop\codes\
 2025-12-15 09:04:24,638 - INFO - 生成Windows启动脚本: dist\start_server.bat
 2025-12-15 09:04:24,638 - INFO - 生成Systemd服务配置: dist\zpython.service
 2025-12-15 09:04:24,638 - INFO - 生成Systemd服务安装脚本: dist\install_systemd_service.sh
+2025-12-16 00:20:34,896 - INFO - ===== Django项目部署工具 =====
+2025-12-16 00:20:34,896 - INFO - 
+=== 生成requirements.txt ===
+2025-12-16 00:20:34,896 - INFO - 命令：pip freeze > C:\Users\Archimedes\Desktop\codes\Zpython\requirements.txt
+2025-12-16 00:20:35,496 - INFO - 成功：...
+2025-12-16 00:20:35,496 - INFO - 
+=== 创建虚拟环境 ===
+2025-12-16 00:20:35,496 - INFO - 命令：python -m venv venv
+2025-12-16 00:20:36,763 - INFO - 成功：...
+2025-12-16 00:20:36,763 - INFO - 
+=== 安装项目依赖和gunicorn ===
+2025-12-16 00:20:36,763 - INFO - 命令：venv\Scripts\python.exe -m pip install --upgrade pip && venv\Scripts\python.exe -m pip install -r requirements.txt gunicorn
+2025-12-16 00:21:05,852 - INFO - 成功：Requirement already satisfied: pip in c:\users\archimedes\desktop\codes\zpython\venv\lib\site-packages (25.3)
+Requirement already satisfied: gunicorn in c:\users\archimedes\desktop\codes\zpython\venv\...
+2025-12-16 00:21:05,852 - INFO - 生成Linux启动脚本: dist\start_production.sh
+2025-12-16 00:21:05,852 - INFO - 生成Windows启动脚本: dist\start_server.bat
+2025-12-16 00:21:05,852 - INFO - 生成Systemd服务配置: dist\zpython.service
+2025-12-16 00:21:05,852 - INFO - 生成Systemd服务安装脚本: dist\install_systemd_service.sh
+2025-12-16 00:21:05,852 - INFO - 
+===== 部署准备成功！ =====
+2025-12-16 00:21:05,852 - INFO - 项目名称：zpython_django
+2025-12-16 00:21:05,852 - INFO - 虚拟环境：venv
+2025-12-16 00:21:05,852 - INFO - 部署端口：5555
+2025-12-16 00:21:05,852 - INFO - 
+部署文件：
+2025-12-16 00:21:05,852 - INFO -   - 启动脚本：dist/start_production.sh（Linux生产环境）
+2025-12-16 00:21:05,852 - INFO -   - 开发脚本：dist/start_server.bat（Windows开发环境）
+2025-12-16 00:21:05,852 - INFO -   - Systemd配置：dist/zpython.service
+2025-12-16 00:21:05,852 - INFO -   - Systemd安装脚本：dist/install_systemd_service.sh
+2025-12-16 00:21:05,852 - INFO - 
+生产环境部署步骤：
+2025-12-16 00:21:05,852 - INFO -   1. 将项目文件复制到服务器
+2025-12-16 00:21:05,862 - INFO -   2. 在服务器上执行：cd zpython_django
+2025-12-16 00:21:05,862 - INFO -   3. 创建虚拟环境：python -m venv venv
+2025-12-16 00:21:05,862 - INFO -   4. 安装依赖：venv/bin/pip install -r requirements.txt gunicorn
+2025-12-16 00:21:05,863 - INFO -   5. 启动服务：cd dist && ./start_production.sh
+2025-12-16 00:21:05,863 - INFO - 
+设置开机自启：
+2025-12-16 00:21:05,863 - INFO -   cd dist && sudo ./install_systemd_service.sh
+2025-12-16 00:21:05,863 - INFO - 
+日志文件：logs\package.log
+2025-12-16 00:22:47,872 - INFO - ===== Django项目部署工具 =====
+2025-12-16 00:22:47,872 - INFO - 
+=== 生成requirements.txt ===
+2025-12-16 00:22:47,872 - INFO - 命令：pip freeze > C:\Users\Archimedes\Desktop\codes\Zpython\requirements.txt
+2025-12-16 00:22:48,210 - INFO - 成功：...
+2025-12-16 00:22:48,211 - INFO - 
+=== 创建虚拟环境 ===
+2025-12-16 00:22:48,211 - INFO - 命令：python -m venv venv
+2025-12-16 00:22:49,545 - INFO - 成功：...
+2025-12-16 00:22:49,545 - INFO - 
+=== 安装项目依赖和gunicorn ===
+2025-12-16 00:22:49,546 - INFO - 命令：venv\Scripts\python.exe -m pip install --upgrade pip && venv\Scripts\python.exe -m pip install -r requirements.txt gunicorn
+2025-12-16 00:22:53,172 - INFO - 成功：Requirement already satisfied: pip in c:\users\archimedes\desktop\codes\zpython\venv\lib\site-packages (25.3)
+Requirement already satisfied: gunicorn in c:\users\archimedes\desktop\codes\zpython\venv\...
+2025-12-16 00:22:53,181 - INFO - 生成Linux启动脚本: dist\start_production.sh
+2025-12-16 00:22:53,181 - INFO - 生成Windows启动脚本: dist\start_server.bat
+2025-12-16 00:22:53,181 - INFO - 生成Systemd服务配置: dist\zpython.service
+2025-12-16 00:22:53,181 - INFO - 生成Systemd服务安装脚本: dist\install_systemd_service.sh
+2025-12-16 00:22:53,181 - INFO - 
+===== 部署准备成功！ =====
+2025-12-16 00:22:53,181 - INFO - 项目名称：zpython_django
+2025-12-16 00:22:53,181 - INFO - 虚拟环境：venv
+2025-12-16 00:22:53,181 - INFO - 部署端口：5555
+2025-12-16 00:22:53,181 - INFO - 
+部署文件：
+2025-12-16 00:22:53,186 - INFO -   - 启动脚本：dist/start_production.sh（Linux生产环境）
+2025-12-16 00:22:53,186 - INFO -   - 开发脚本：dist/start_server.bat（Windows开发环境）
+2025-12-16 00:22:53,186 - INFO -   - Systemd配置：dist/zpython.service
+2025-12-16 00:22:53,186 - INFO -   - Systemd安装脚本：dist/install_systemd_service.sh
+2025-12-16 00:22:53,187 - INFO - 
+生产环境部署步骤：
+2025-12-16 00:22:53,187 - INFO -   1. 将项目文件复制到服务器
+2025-12-16 00:22:53,187 - INFO -   2. 在服务器上执行：cd zpython_django
+2025-12-16 00:22:53,187 - INFO -   3. 创建虚拟环境：python -m venv venv
+2025-12-16 00:22:53,188 - INFO -   4. 安装依赖：venv/bin/pip install -r requirements.txt gunicorn
+2025-12-16 00:22:53,188 - INFO -   5. 启动服务：cd dist && ./start_production.sh
+2025-12-16 00:22:53,188 - INFO - 
+设置开机自启：
+2025-12-16 00:22:53,188 - INFO -   cd dist && sudo ./install_systemd_service.sh
+2025-12-16 00:22:53,189 - INFO - 
+日志文件：logs\package.log
+2025-12-16 00:26:42,043 - INFO - ===== Django项目部署工具 =====
+2025-12-16 00:26:42,043 - INFO - 
+=== 生成requirements.txt ===
+2025-12-16 00:26:42,043 - INFO - 命令：pip freeze > C:\Users\Archimedes\Desktop\codes\Zpython\requirements.txt
+2025-12-16 00:26:42,371 - INFO - 成功：...
+2025-12-16 00:26:42,371 - INFO - 
+=== 创建虚拟环境 ===
+2025-12-16 00:26:42,371 - INFO - 命令：python -m venv venv
+2025-12-16 00:26:43,688 - INFO - 成功：...
+2025-12-16 00:26:43,688 - INFO - 
+=== 安装项目依赖和gunicorn ===
+2025-12-16 00:26:43,688 - INFO - 命令：venv\Scripts\python.exe -m pip install --upgrade pip && venv\Scripts\python.exe -m pip install -r requirements.txt gunicorn
+2025-12-16 00:26:44,788 - INFO - 成功：Requirement already satisfied: pip in c:\users\archimedes\desktop\codes\zpython\venv\lib\site-packages (25.3)
+Requirement already satisfied: gunicorn in c:\users\archimedes\desktop\codes\zpython\venv\...
+2025-12-16 00:26:44,788 - INFO - 生成Linux启动脚本: dist\start_production.sh
+2025-12-16 00:26:44,788 - INFO - 生成Windows启动脚本: dist\start_server.bat
+2025-12-16 00:26:44,788 - INFO - 生成Systemd服务配置: dist\zpython.service
+2025-12-16 00:26:44,788 - INFO - 生成Systemd服务安装脚本: dist\install_systemd_service.sh
+2025-12-16 00:26:44,788 - INFO - 
+===== 部署准备成功！ =====
+2025-12-16 00:26:44,788 - INFO - 项目名称：zpython_django
+2025-12-16 00:26:44,788 - INFO - 虚拟环境：venv
+2025-12-16 00:26:44,788 - INFO - 部署端口：5555
+2025-12-16 00:26:44,788 - INFO - 
+部署文件：
+2025-12-16 00:26:44,799 - INFO -   - 启动脚本：dist/start_production.sh（Linux生产环境）
+2025-12-16 00:26:44,799 - INFO -   - 开发脚本：dist/start_server.bat（Windows开发环境）
+2025-12-16 00:26:44,799 - INFO -   - Systemd配置：dist/zpython.service
+2025-12-16 00:26:44,799 - INFO -   - Systemd安装脚本：dist/install_systemd_service.sh
+2025-12-16 00:26:44,800 - INFO - 
+生产环境部署步骤：
+2025-12-16 00:26:44,800 - INFO -   1. 将项目文件复制到服务器
+2025-12-16 00:26:44,800 - INFO -   2. 在服务器上执行：cd zpython_django
+2025-12-16 00:26:44,800 - INFO -   3. 创建虚拟环境：python -m venv venv
+2025-12-16 00:26:44,801 - INFO -   4. 安装依赖：venv/bin/pip install -r requirements.txt gunicorn
+2025-12-16 00:26:44,801 - INFO -   5. 启动服务：cd dist && ./start_production.sh
+2025-12-16 00:26:44,801 - INFO - 
+设置开机自启：
+2025-12-16 00:26:44,801 - INFO -   cd dist && sudo ./install_systemd_service.sh
+2025-12-16 00:26:44,801 - INFO - 
+日志文件：logs\package.log
+2025-12-16 09:08:13,428 - INFO - ===== Django项目部署工具 =====
+2025-12-16 09:08:13,428 - INFO - 
+=== 生成requirements.txt ===
+2025-12-16 09:08:13,428 - INFO - 命令：pip freeze > C:\Users\Archimedes\Desktop\codes\Zpython\requirements.txt
+2025-12-16 09:08:13,777 - INFO - 成功：...
+2025-12-16 09:08:13,777 - INFO - 
+=== 创建虚拟环境 ===
+2025-12-16 09:08:13,777 - INFO - 命令：python -m venv venv
+2025-12-16 09:08:15,137 - INFO - 成功：...
+2025-12-16 09:08:15,137 - INFO - 
+=== 安装项目依赖和gunicorn ===
+2025-12-16 09:08:15,137 - INFO - 命令：venv\Scripts\python.exe -m pip install --upgrade pip && venv\Scripts\python.exe -m pip install -r requirements.txt gunicorn
+2025-12-16 09:08:16,478 - INFO - 成功：Requirement already satisfied: pip in c:\users\archimedes\desktop\codes\zpython\venv\lib\site-packages (25.3)
+Requirement already satisfied: gunicorn in c:\users\archimedes\desktop\codes\zpython\venv\...
+2025-12-16 09:08:16,478 - INFO - 生成Linux启动脚本: dist\start_production.sh
+2025-12-16 09:08:16,478 - INFO - 生成Windows启动脚本: dist\start_server.bat
+2025-12-16 09:08:16,478 - INFO - 生成Systemd服务配置: dist\zpython.service
+2025-12-16 09:08:16,478 - INFO - 生成Systemd服务安装脚本: dist\install_systemd_service.sh
+2025-12-16 09:08:16,478 - INFO - 
+===== 部署准备成功！ =====
+2025-12-16 09:08:16,478 - INFO - 项目名称：zpython_django
+2025-12-16 09:08:16,478 - INFO - 虚拟环境：venv
+2025-12-16 09:08:16,486 - INFO - 部署端口：5555
+2025-12-16 09:08:16,486 - INFO - 
+部署文件：
+2025-12-16 09:08:16,486 - INFO -   - 启动脚本：dist/start_production.sh（Linux生产环境）
+2025-12-16 09:08:16,486 - INFO -   - 开发脚本：dist/start_server.bat（Windows开发环境）
+2025-12-16 09:08:16,486 - INFO -   - Systemd配置：dist/zpython.service
+2025-12-16 09:08:16,486 - INFO -   - Systemd安装脚本：dist/install_systemd_service.sh
+2025-12-16 09:08:16,488 - INFO - 
+生产环境部署步骤：
+2025-12-16 09:08:16,488 - INFO -   1. 将项目文件复制到服务器
+2025-12-16 09:08:16,488 - INFO -   2. 在服务器上执行：cd zpython_django
+2025-12-16 09:08:16,488 - INFO -   3. 创建虚拟环境：python -m venv venv
+2025-12-16 09:08:16,489 - INFO -   4. 安装依赖：venv/bin/pip install -r requirements.txt gunicorn
+2025-12-16 09:08:16,489 - INFO -   5. 启动服务：cd dist && ./start_production.sh
+2025-12-16 09:08:16,489 - INFO - 
+设置开机自启：
+2025-12-16 09:08:16,489 - INFO -   cd dist && sudo ./install_systemd_service.sh
+2025-12-16 09:08:16,490 - INFO - 
+日志文件：logs\package.log
