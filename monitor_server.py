@@ -5,8 +5,9 @@ import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-# 配置日志
-LOG_DIR = Path("logs")
+# 配置日志（使用绝对路径，确保日志文件始终生成在脚本所在目录）
+SCRIPT_DIR = Path(__file__).parent
+LOG_DIR = SCRIPT_DIR / "logs"
 LOG_FILE = LOG_DIR / "server_resource.log"
 LOG_MAX_SIZE = 256 * 1024  # 256KB，与package.py保持一致
 LOG_BACKUP_COUNT = 5       # 保留5个备份，与package.py保持一致
@@ -52,13 +53,11 @@ def find_django_process():
             continue
     return django_processes, main_pid
 
-def monitor_processes(duration=300, interval=5):
-    """监控Django进程的资源使用情况"""
-    start_time = time.time()
-    end_time = start_time + duration
-    logger.info(f"开始监控Django服务资源使用情况，持续时间: {duration}秒，检查间隔: {interval}秒")
+def monitor_processes(interval=5):
+    """监控Django进程的资源使用情况（24小时不间断）"""
+    logger.info(f"开始监控Django服务资源使用情况，检查间隔: {interval}秒")
     
-    while time.time() < end_time:
+    while True:
         processes, main_pid = find_django_process()
         if not processes:
             logger.warning("未找到Django进程")
@@ -87,5 +86,5 @@ def monitor_processes(duration=300, interval=5):
     logger.info("监控结束")
 
 if __name__ == "__main__":
-    # 默认监控5分钟，每5秒检查一次
-    monitor_processes(duration=300, interval=5)
+    # 默认每5秒检查一次，24小时不间断监控
+    monitor_processes(interval=5)
