@@ -129,7 +129,11 @@ gunicorn {WSGI_MODULE} \
     --timeout {GUNICORN_TIMEOUT} \
     --log-level info \
     --access-logfile access.log \
-    --error-logfile error.log
+    --error-logfile error.log &
+
+# 启动服务监控脚本
+echo "启动服务监控脚本..."
+python ../monitor_server.py &
 
 echo ""
 echo "=== 服务已启动 ==="
@@ -153,13 +157,18 @@ echo 监听地址: {GUNICORN_BIND}
 echo.
 
 REM 使用Django开发服务器（Windows环境）
-python {DJANGO_ENTRY} runserver {GUNICORN_BIND} --noreload
+echo 启动Django服务器...
+start "Django Server" python {DJANGO_ENTRY} runserver {GUNICORN_BIND} --noreload
+
+REM 启动服务监控脚本
+echo 启动服务监控脚本...
+start "Server Monitor" python ..\monitor_server.py
 
 echo.
 echo === 服务已启动 ===
 """
     
-    # 生成systemd服务配置文件
+    # 生成systemd服务配置文件（Django应用）
     systemd_service = f"""[Unit]
 Description=Zpython Django Application
 After=network.target
@@ -175,6 +184,23 @@ Restart=always
 WantedBy=multi-user.target
 """
     
+    # 生成systemd服务配置文件（监控脚本）
+    monitor_systemd_service = f"""[Unit]
+Description=Zpython Server Monitor
+After=network.target zpython.service
+Requires=zpython.service
+
+[Service]
+User={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
+Group={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
+WorkingDirectory={os.getcwd()}
+ExecStart={os.getcwd()}/{VENV_NAME}/bin/python {os.getcwd()}/../monitor_server.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+"""
+    
     # 生成systemd服务安装脚本
     systemd_install_script = f"""#!/bin/bash
 # Systemd服务安装脚本
@@ -183,20 +209,24 @@ echo "=== 安装Zpython Systemd服务 ==="
 
 # 复制服务文件到systemd目录
 sudo cp zpython.service /etc/systemd/system/
+sudo cp zpython-monitor.service /etc/systemd/system/
 
 # 重新加载systemd配置
 sudo systemctl daemon-reload
 
 # 启用服务（开机自启）
-sudo systemctl enable zpython
+sudo systemctl enable zpython zpython-monitor
 
 # 启动服务
-sudo systemctl start zpython
+sudo systemctl start zpython zpython-monitor
 
 echo ""
 echo "=== Systemd服务安装完成！ ==="
-echo "服务状态："
+echo "Django应用服务状态："
 sudo systemctl status zpython --no-pager
+echo ""
+echo "监控服务状态："
+sudo systemctl status zpython-monitor --no-pager
 """
 
     try:
@@ -219,6 +249,11 @@ sudo systemctl status zpython --no-pager
         systemd_path = dist_dir / "zpython.service"
         systemd_path.write_text(systemd_service, encoding="utf-8")
         logger.info(f"生成Systemd服务配置: {systemd_path}")
+        
+        # 保存监控服务配置文件
+        monitor_systemd_path = dist_dir / "zpython-monitor.service"
+        monitor_systemd_path.write_text(monitor_systemd_service, encoding="utf-8")
+        logger.info(f"生成监控服务配置: {monitor_systemd_path}")
         
         # 保存systemd服务安装脚本
         systemd_install_path = dist_dir / "install_systemd_service.sh"
@@ -265,5 +300,18 @@ def main():
     logger.info(f"  cd dist && sudo ./install_systemd_service.sh")
     logger.info(f"\n日志文件：{LOG_FILE}")
 
+def generate_only():
+    """只生成部署文件，用于测试"""
+    logger.info("===== 只生成部署文件 =====")
+    if generate_deploy_files():
+        logger.info("\n===== 部署文件生成成功！ =====")
+    else:
+        logger.error("\n===== 部署文件生成失败！ =====")
+        sys.exit(1)
+
 if __name__ == "__main__":
-    main()
+    # 检查是否有参数，支持只生成部署文件
+    if len(sys.argv) > 1 and sys.argv[1] == "--generate-only":
+        generate_only()
+    else:
+        main()
