@@ -162,7 +162,7 @@ start "Django Server" python {DJANGO_ENTRY} runserver {GUNICORN_BIND} --noreload
 
 REM 启动服务监控脚本
 echo 启动服务监控脚本...
-start "Server Monitor" python ..\monitor_server.py
+start "Server Monitor" python monitor_server.py
 
 echo.
 echo === 服务已启动 ===
