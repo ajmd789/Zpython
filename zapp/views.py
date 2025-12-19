@@ -56,6 +56,10 @@ def index(request):
     # 直接渲染homepage.html模板，无需传递数据
     return render(request, 'zapp/homepage.html')
 
+def index_with_slash(request):
+    # 渲染index.html模板
+    return render(request, 'zapp/index.html')
+
 
 @require_GET
 def fetch_stock(request):

@@ -10,5 +10,5 @@ urlpatterns = [
     path('getAllCodes/', views.get_all_codes, name='get_all_codes'),
     path('api/fetch_stock/', views.fetch_stock, name='fetch_stock'),
     path('index', views.index, name='index'),
-    path('index/', views.index, name='index_with_slash'),
+    path('index/', views.index_with_slash, name='index_with_slash'),
 ]
