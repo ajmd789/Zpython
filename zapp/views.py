@@ -53,8 +53,8 @@ def get_all_codes(request):
         }, status=405)
 
 def index(request):
-    # 直接渲染index.html模板，无需传递数据（数据通过前端JS获取）
-    return render(request, 'zapp/index.html')
+    # 直接渲染homepage.html模板，无需传递数据
+    return render(request, 'zapp/homepage.html')
 
 
 @require_GET

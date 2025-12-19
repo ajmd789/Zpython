@@ -9,5 +9,6 @@ urlpatterns = [
     path('api/timestamp/', views.timestamp_api, name='timestamp_api'),
     path('getAllCodes/', views.get_all_codes, name='get_all_codes'),
     path('api/fetch_stock/', views.fetch_stock, name='fetch_stock'),
-    path('index/', views.index, name='index'),
+    path('index', views.index, name='index'),
+    path('index/', views.index, name='index_with_slash'),
 ]
