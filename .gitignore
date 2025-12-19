@@ -64,3 +64,6 @@ htmlcov/
 *.swo
 *~
 .nova/
+# Python bytecode files
+*.pyc
+__pycache__/
