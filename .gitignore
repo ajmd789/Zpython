@@ -67,3 +67,5 @@ htmlcov/
 # Python bytecode files
 *.pyc
 __pycache__/
+zapp/__pycache__/urls.cpython-310.pyc
+zapp/__pycache__/views.cpython-310.pyc

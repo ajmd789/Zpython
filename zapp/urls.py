@@ -9,6 +9,12 @@ urlpatterns = [
     path('api/timestamp/', views.timestamp_api, name='timestamp_api'),
     path('api/getAllCodes/', views.get_all_codes, name='get_all_codes'),
     path('api/fetch_stock/', views.fetch_stock, name='fetch_stock'),
+    # 备忘录接口
+    path('api/memos/', views.get_all_memos, name='get_all_memos'),
+    path('api/memos/add/', views.add_memo, name='add_memo'),
+    path('api/memos/delete/', views.delete_memo, name='delete_memo'),
+    path('api/memos/search/', views.search_memos, name='search_memos'),
     path('index', views.index, name='index'),
     path('index/', views.index_with_slash, name='index_with_slash'),
+    path('notebook', views.notebook, name='notebook'),
 ]
