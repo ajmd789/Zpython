@@ -198,7 +198,11 @@ def generate_deploy_files():
 cd "$(dirname "$0")"
 
 # 激活虚拟环境
-source ../{VENV_NAME}/bin/activate
+source ../{VENV_NAME}/bin/activate > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "错误：无法激活虚拟环境！"
+    exit 1
+fi
 
 echo "=== 启动Django生产服务器（Gunicorn） ==="
 echo "监听地址: {GUNICORN_BIND}"
@@ -213,11 +217,22 @@ gunicorn {WSGI_MODULE} \
     --timeout {GUNICORN_TIMEOUT} \
     --log-level info \
     --access-logfile access.log \
-    --error-logfile error.log &
+    --error-logfile error.log > gunicorn_start.log 2>&1 &
+
+# 检查gunicorn是否成功启动
+if [ $? -ne 0 ]; then
+    echo "错误：Gunicorn启动失败！"
+    exit 1
+fi
 
 # 启动服务监控脚本
 echo "启动服务监控脚本..."
-python ../monitor_server.py &
+python ../monitor_server.py > monitor_start.log 2>&1 &
+
+# 检查监控脚本是否成功启动
+if [ $? -ne 0 ]; then
+    echo "警告：监控脚本启动失败！"
+fi
 
 echo ""
 echo "=== 服务已启动 ==="
@@ -225,6 +240,9 @@ echo "访问地址: http://$(hostname -I | awk '{{print $1}}'):{PORT}"
 echo ""
 echo "若要设置开机自启，请运行："
 echo "sudo ./install_systemd_service.sh"
+
+# 确保脚本快速退出
+exit 0
 """
     
     # 生成Windows启动脚本（开发用runserver）
