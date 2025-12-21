@@ -271,15 +271,19 @@ echo === 服务已启动 ===
 """
     
     # 生成systemd服务配置文件（Django应用）
+    # 使用占位符，让安装脚本自动替换为实际路径
+    user = os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'
+    
+    # 使用PLACEHOLDER_PROJECT_ROOT作为占位符，安装时会被替换为实际路径
     systemd_service = f"""[Unit]
 Description=Zpython Django Application
 After=network.target
 
 [Service]
-User={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
-Group={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
-WorkingDirectory={PROJECT_ROOT}
-ExecStart={PROJECT_ROOT}/{VENV_NAME}/bin/gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS} --timeout {GUNICORN_TIMEOUT}
+User={user}
+Group={user}
+WorkingDirectory=PLACEHOLDER_PROJECT_ROOT
+ExecStart=PLACEHOLDER_PROJECT_ROOT/{VENV_NAME}/bin/gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS} --timeout {GUNICORN_TIMEOUT}
 Restart=always
 
 [Install]
@@ -293,10 +297,10 @@ After=network.target zpython.service
 Requires=zpython.service
 
 [Service]
-User={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
-Group={os.getlogin() if os.getlogin() != 'SYSTEM' else 'ubuntu'}
-WorkingDirectory={PROJECT_ROOT}
-ExecStart={PROJECT_ROOT}/{VENV_NAME}/bin/python {PROJECT_ROOT}/monitor_server.py
+User={user}
+Group={user}
+WorkingDirectory=PLACEHOLDER_PROJECT_ROOT
+ExecStart=PLACEHOLDER_PROJECT_ROOT/{VENV_NAME}/bin/python PLACEHOLDER_PROJECT_ROOT/monitor_server.py
 Restart=always
 
 [Install]
@@ -307,11 +311,25 @@ WantedBy=multi-user.target
     systemd_install_script = f"""#!/bin/bash
 # Systemd服务安装脚本
 
+# 获取当前项目根目录的绝对路径
+PROJECT_ROOT=$(cd "$(dirname "$0")" && cd .. && pwd)
 echo "=== 安装Zpython Systemd服务 ==="
+echo "项目根目录: $PROJECT_ROOT"
+
+# 替换服务配置文件中的占位符
+cp zpython.service zpython.service.tmp
+cp zpython-monitor.service zpython-monitor.service.tmp
+
+# 替换占位符为实际路径
+sed -i "s|PLACEHOLDER_PROJECT_ROOT|$PROJECT_ROOT|g" zpython.service.tmp
+sed -i "s|PLACEHOLDER_PROJECT_ROOT|$PROJECT_ROOT|g" zpython-monitor.service.tmp
 
 # 复制服务文件到systemd目录
-sudo cp zpython.service /etc/systemd/system/
-sudo cp zpython-monitor.service /etc/systemd/system/
+sudo cp zpython.service.tmp /etc/systemd/system/zpython.service
+sudo cp zpython-monitor.service.tmp /etc/systemd/system/zpython-monitor.service
+
+# 清理临时文件
+rm zpython.service.tmp zpython-monitor.service.tmp
 
 # 重新加载systemd配置
 sudo systemctl daemon-reload
