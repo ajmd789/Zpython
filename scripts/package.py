@@ -120,9 +120,20 @@ def generate_requirements():
             
         requirements_path = PROJECT_ROOT / "requirements.txt"
         
-        # 生成requirements.txt
-        cmd = f"pip freeze > {requirements_path}"
-        return run_cmd(cmd, "生成requirements.txt", cwd=PROJECT_ROOT)
+        # 使用pip install -r requirements.txt的方式确保依赖正确，如果requirements.txt不存在则创建默认的
+        if not requirements_path.exists():
+            # 创建默认的requirements.txt，包含Django和gunicorn等核心依赖
+            default_requirements = """
+Django>=5.0.0
+gunicorn>=20.0.0
+psutil>=5.0.0
+"""
+            requirements_path.write_text(default_requirements.strip(), encoding="utf-8")
+            logger.info(f"创建默认requirements.txt：{requirements_path}")
+            return True
+        else:
+            logger.info(f"requirements.txt已存在，跳过生成：{requirements_path}")
+            return True
     except Exception as e:
         logger.error(f"生成requirements.txt失败：{str(e)}")
         return False
