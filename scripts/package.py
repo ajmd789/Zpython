@@ -82,15 +82,16 @@ file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
-def run_cmd(cmd, desc="执行命令", cwd=None):
+def run_cmd(cmd, desc="执行命令", cwd=None, timeout=30):
     """跨平台执行命令，带详细日志输出"""
     logger.info(f"\n=== {desc} ===")
     logger.info(f"命令：{cmd}")
     logger.info(f"工作目录：{cwd or os.getcwd()}")
+    logger.info(f"超时时间：{timeout}秒")
     logger.debug(f"开始执行命令：{cmd}")
     try:
         result = subprocess.run(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="ignore", cwd=cwd
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="ignore", cwd=cwd, timeout=timeout
         )
         logger.debug(f"命令执行完成，返回码：{result.returncode}")
         
@@ -111,6 +112,10 @@ def run_cmd(cmd, desc="执行命令", cwd=None):
             if result.stdout:
                 logger.error(f"命令输出：\n{result.stdout}")
             return False
+    except subprocess.TimeoutExpired:
+        logger.error(f"命令执行超时（{timeout}秒）：{cmd}")
+        logger.debug(f"超时异常详情：{traceback.format_exc()}")
+        return False
     except Exception as e:
         logger.error(f"执行命令时出错：{str(e)}")
         logger.debug(f"异常详情：{traceback.format_exc()}")
@@ -161,8 +166,8 @@ def create_venv():
     venv_path = PROJECT_ROOT / VENV_NAME
     if venv_path.exists():
         logger.info(f"虚拟环境已存在：{venv_path}")
-        logger.info("正在重新创建虚拟环境...")
-        shutil.rmtree(venv_path)
+        logger.info("跳过虚拟环境创建")
+        return True
     
     # 根据操作系统使用正确的Python命令
     python_cmd = "python" if SYSTEM == "Windows" else "python3"
@@ -339,6 +344,21 @@ sudo systemctl status zpython-monitor --no-pager
         systemd_install_path.write_text(systemd_install_script, encoding="utf-8")
         systemd_install_path.chmod(0o755)  # 添加执行权限
         logger.info(f"生成Systemd服务安装脚本: {systemd_install_path}")
+
+        # 复制monitor_server.py到项目根目录（如果存在的话）
+        monitor_script_path = PROJECT_ROOT / "monitor_server.py"
+        if monitor_script_path.exists():
+            # 这个文件已经在项目根目录，不需要复制
+            logger.info(f"监控脚本已存在于项目根目录: {monitor_script_path}")
+        else:
+            # 如果不存在，创建一个简单的监控脚本
+            simple_monitor_script = """import time
+print("简单监控脚本运行中...")
+while True:
+    time.sleep(3600)
+"""
+            monitor_script_path.write_text(simple_monitor_script, encoding="utf-8")
+            logger.info(f"创建简单监控脚本: {monitor_script_path}")
 
         return True
     except Exception as e:
