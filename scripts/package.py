@@ -139,7 +139,9 @@ def create_venv():
         logger.info("正在重新创建虚拟环境...")
         shutil.rmtree(venv_path)
     
-    venv_cmd = f"python -m venv {VENV_NAME}"
+    # 根据操作系统使用正确的Python命令
+    python_cmd = "python" if SYSTEM == "Windows" else "python3"
+    venv_cmd = f"{python_cmd} -m venv {VENV_NAME}"
     return run_cmd(venv_cmd, "创建虚拟环境", cwd=PROJECT_ROOT)
 
 def install_deps():
