@@ -7,9 +7,7 @@ from urllib.parse import urlencode
 
 # 常用 Android 风格 User-Agent，模拟来自移动端的请求以降低被识别为爬虫的风险
 ANDROID_UA = (
-    "Mozilla/5.0 (Linux; Android 10; SM-G973F) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/86.0.4240.198 Mobile Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
 )
 
 class StockApiUtils:

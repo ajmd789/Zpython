@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEMO.EXE - Memo Manager v1.0</title>
+  <style>
+    /* Windows 95 retro style with system fonts and classic borders */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #008080;
+      color: #000;
+      padding: 20px;
+      line-height: 1.4;
+    }
+
+    .window {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #fff #000 #000 #fff;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+    }
+
+    .title-bar {
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
+      padding: 4px 6px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .title-bar-text {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .title-bar-controls {
+      display: flex;
+      gap: 2px;
+    }
+
+    .title-bar-btn {
+      width: 18px;
+      height: 16px;
+      background: #c0c0c0;
+      border: 1px solid;
+      border-color: #fff #000 #000 #fff;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .title-bar-btn:active {
+      border-color: #000 #fff #fff #000;
+    }
+
+    .window-body {
+      padding: 16px;
+    }
+
+    .status-bar {
+      border-top: 1px solid;
+      border-color: #fff #000 #000 #fff;
+      padding: 4px 8px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .field {
+      border: 2px solid;
+      border-color: #000 #fff #fff #000;
+      background: #fff;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      border: 2px solid;
+      border-color: #000 #fff #fff #000;
+      padding: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      background: #fff;
+      outline: none;
+    }
+
+    input[type="text"]:focus {
+      outline: 1px dotted #000;
+      outline-offset: -4px;
+    }
+
+    button {
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #fff #000 #000 #fff;
+      padding: 6px 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      min-width: 80px;
+      font-weight: bold;
+    }
+
+    button:active {
+      border-color: #000 #fff #fff #000;
+      padding: 7px 15px 5px 17px;
+    }
+
+    button:disabled {
+      color: #808080;
+      text-shadow: 1px 1px #fff;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .memo-item {
+      border: 1px solid #808080;
+      background: #fff;
+      padding: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .memo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .memo-content {
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+
+    .memo-time {
+      color: #808080;
+      font-size: 11px;
+    }
+
+    .memo-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .memo-actions button {
+      min-width: 60px;
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #808080;
+      border: 1px dashed #808080;
+      background: #fff;
+    }
+
+    .ascii-art {
+      font-size: 10px;
+      line-height: 1;
+      color: #000;
+      margin-bottom: 8px;
+      white-space: pre;
+    }
+
+    h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 10px;
+      }
+      .window-body {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <!-- Windows 95 style title bar -->
+    <div class="title-bar">
+      <div class="title-bar-text">
+        <span>⚡</span>
+        <span>MEMO.EXE - Memo Manager v1.0</span>
+      </div>
+      <div class="title-bar-controls">
+        <button class="title-bar-btn">_</button>
+        <button class="title-bar-btn">□</button>
+        <button class="title-bar-btn">×</button>
+      </div>
+    </div>
+
+    <div class="window-body">
+      <!-- ASCII art header for retro aesthetic -->
+      <div class="ascii-art">
+ __  __ _____ __  __  ___  
+|  \/  | ____|  \/  |/ _ \ 
+| |\/| |  _| | |\/| | | | |
+| |  | | |___| |  | | |_| |
+|_|  |_|_____|_|  |_|\___/ 
+                            
+      </div>
+
+      <div class="field">
+        <h2>[NEW MEMO]</h2>
+        <input 
+          type="text" 
+          id="memoInput" 
+          placeholder="Type your memo here..."
+          maxlength="200"
+        />
+        <br><br>
+        <div class="btn-group">
+          <button onclick="addMemo()">ADD</button>
+          <button onclick="clearInput()">CLEAR</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <h2>[SEARCH]</h2>
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Search keyword..."
+          oninput="searchMemos()"
+        />
+      </div>
+
+      <div class="field">
+        <h2>[MEMO LIST]</h2>
+        <div id="memoList">
+          <!-- Memos will be rendered here -->
+        </div>
+        <div id="emptyState" class="empty-state hidden">
+          <div class="ascii-art">
+  _____ __  __ ____ _______   __
+ | ____|  \/  |  _ \_   _\ \ / /
+ |  _| | |\/| | |_) || |  \ V / 
+ | |___| |  | |  __/ | |   | |  
+ |_____|_|  |_|_|    |_|   |_|  
+          </div>
+          <p>NO MEMOS FOUND</p>
+          <p>Press ADD to create your first memo</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Windows 95 style status bar -->
+    <div class="status-bar">
+      <span id="memoCount">Total: 0</span>
+      <span>Ready</span>
+    </div>
+  </div>
+
+  <script>
+    // Real API - 真实后端接口
+    const api = {
+      // 获取所有备忘录
+      async getAllMemos() {
+        const response = await fetch('/api/memos/');
+        const data = await response.json();
+        if (data.code !== 200) {
+          throw new Error(data.message);
+        }
+        return data.data;
+      },
+
+      // 添加备忘录
+      async addMemo(content) {
+        const response = await fetch('/api/memos/add/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            content: content
+          })
+        });
+        const data = await response.json();
+        if (data.code !== 200) {
+          throw new Error(data.message);
+        }
+        return data.data;
+      },
+
+      // 删除备忘录
+      async deleteMemo(id) {
+        const response = await fetch('/api/memos/delete/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            id: id
+          })
+        });
+        const data = await response.json();
+        if (data.code !== 200) {
+          throw new Error(data.message);
+        }
+        return data;
+      },
+
+      // 搜索备忘录
+      async searchMemos(keyword) {
+        const response = await fetch(`/api/memos/search/?keyword=${encodeURIComponent(keyword)}`);
+        const data = await response.json();
+        if (data.code !== 200) {
+          throw new Error(data.message);
+        }
+        return data.data;
+      }
+    };
+
+    function renderMemos(memos) {
+      const memoList = document.getElementById('memoList');
+      const emptyState = document.getElementById('emptyState');
+      const memoCount = document.getElementById('memoCount');
+
+      if (memos.length === 0) {
+        memoList.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        memoCount.textContent = 'Total: 0';
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      memoCount.textContent = `Total: ${memos.length}`;
+
+      memoList.innerHTML = memos.map((memo, index) => `
+        <div class="memo-item">
+          <div class="memo-header">
+            <div style="flex: 1;">
+              <strong>[#${String(index + 1).padStart(3, '0')}]</strong>
+              <div class="memo-content">${memo.content}</div>
+              <div class="memo-time">${memo.createdAt}</div>
+            </div>
+            <div class="memo-actions">
+              <button onclick="deleteMemo(${memo.id})">DELETE</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function clearInput() {
+      document.getElementById('memoInput').value = '';
+      document.getElementById('memoInput').focus();
+    }
+
+    async function addMemo() {
+      const input = document.getElementById('memoInput');
+      const content = input.value.trim();
+
+      if (!content) {
+        alert('ERROR: Memo content is empty!');
+        return;
+      }
+
+      try {
+        await api.addMemo(content);
+        input.value = '';
+        const memos = await api.getAllMemos();
+        renderMemos(memos);
+      } catch (error) {
+        console.error('添加失败:', error);
+        alert('ERROR: Failed to add memo!');
+      }
+    }
+
+    async function deleteMemo(id) {
+      if (!confirm('DELETE this memo?\n\nPress OK to confirm.')) {
+        return;
+      }
+
+      try {
+        await api.deleteMemo(id);
+        const memos = await api.getAllMemos();
+        renderMemos(memos);
+      } catch (error) {
+        console.error('删除失败:', error);
+        alert('ERROR: Failed to delete memo!');
+      }
+    }
+
+    async function searchMemos() {
+      const searchInput = document.getElementById('searchInput');
+      const keyword = searchInput.value.trim();
+
+      try {
+        const memos = keyword
+          ? await api.searchMemos(keyword)
+          : await api.getAllMemos();
+        renderMemos(memos);
+      } catch (error) {
+        console.error('搜索失败:', error);
+      }
+    }
+
+    document.getElementById('memoInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        addMemo();
+      }
+    });
+
+    (async function init() {
+      try {
+        const memos = await api.getAllMemos();
+        renderMemos(memos);
+      } catch (error) {
+        console.error('初始化失败:', error);
+      }
+    })();
+  </script>
+</body>
+</html>

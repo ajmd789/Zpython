@@ -4,8 +4,9 @@ from django.shortcuts import render  # 关键：必须导入render！
 from django.conf import settings
 import time
 from .services.file_service import get_directory_contents
+from .services.memo_service import memo_service
 from .stock_api_utils import StockApiUtils
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 def chat_page(request):
     return render(request, 'zapp/chat.html')  # 渲染测试页面
 
@@ -53,8 +54,16 @@ def get_all_codes(request):
         }, status=405)
 
 def index(request):
-    # 直接渲染index.html模板，无需传递数据（数据通过前端JS获取）
+    # 直接渲染homepage.html模板，无需传递数据
+    return render(request, 'zapp/homepage.html')
+
+def index_with_slash(request):
+    # 渲染index.html模板
     return render(request, 'zapp/index.html')
+
+def notebook(request):
+    # 渲染memo.html模板
+    return render(request, 'zapp/memo.html')
 
 
 @require_GET
@@ -78,3 +87,57 @@ def fetch_stock(request):
 
     # 否则返回获取到的原始数据（状态码200）
     return JsonResponse({"code": 200, "data": result, "message": "success"})
+
+
+# 备忘录接口
+@csrf_exempt
+@require_GET
+def get_all_memos(request):
+    """获取所有备忘录"""
+    try:
+        memos = memo_service.get_all_memos()
+        return JsonResponse({"code": 200, "data": memos, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": str(e)})
+
+@csrf_exempt
+@require_POST
+def add_memo(request):
+    """添加新备忘录"""
+    try:
+        content = request.POST.get('content', '').strip()
+        if not content:
+            return JsonResponse({"code": 400, "data": None, "message": "Content cannot be empty"})
+        new_memo = memo_service.add_memo(content)
+        return JsonResponse({"code": 200, "data": new_memo, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": str(e)})
+
+@csrf_exempt
+@require_POST
+def delete_memo(request):
+    """删除备忘录"""
+    try:
+        memo_id = request.POST.get('id')
+        if not memo_id:
+            return JsonResponse({"code": 400, "data": None, "message": "ID cannot be empty"})
+        success = memo_service.delete_memo(int(memo_id))
+        if success:
+            return JsonResponse({"code": 200, "data": None, "message": "success"})
+        else:
+            return JsonResponse({"code": 404, "data": None, "message": "Memo not found"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": str(e)})
+
+@csrf_exempt
+@require_GET
+def search_memos(request):
+    """搜索备忘录"""
+    try:
+        keyword = request.GET.get('keyword', '').strip()
+        if not keyword:
+            return JsonResponse({"code": 400, "data": None, "message": "Keyword cannot be empty"})
+        memos = memo_service.search_memos(keyword)
+        return JsonResponse({"code": 200, "data": memos, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": str(e)})

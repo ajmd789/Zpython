@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Computer - Windows 95</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'MS Sans Serif', 'Microsoft Sans Serif', sans-serif;
+      background: #008080;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Desktop Icons */
+    .desktop {
+      padding: 20px;
+      height: calc(100vh - 48px);
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 90px);
+      grid-auto-rows: 90px;
+      gap: 20px;
+      align-content: start;
+    }
+
+    .icon {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 4px;
+      border: 2px solid transparent;
+    }
+
+    .icon:hover,
+    .icon.selected {
+      background: rgba(0, 0, 128, 0.3);
+      border: 2px dotted #fff;
+    }
+
+    .icon img {
+      width: 48px;
+      height: 48px;
+      image-rendering: pixelated;
+    }
+
+    .icon-label {
+      color: #fff;
+      font-size: 11px;
+      text-align: center;
+      text-shadow: 1px 1px 2px #000;
+      line-height: 1.2;
+    }
+
+    /* Window */
+    .window {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      max-width: 90vw;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #dfdfdf #808080 #808080 #dfdfdf;
+      box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+      display: none;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .window.active {
+      display: flex;
+      animation: windowOpen 0.2s ease-out;
+    }
+
+    @keyframes windowOpen {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+
+    .window-titlebar {
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
+      padding: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: move;
+    }
+
+    .window-title {
+      font-weight: bold;
+      font-size: 12px;
+      padding: 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 2px;
+    }
+
+    .window-btn {
+      width: 16px;
+      height: 14px;
+      background: #c0c0c0;
+      border: 1px solid;
+      border-color: #fff #000 #000 #fff;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .window-btn:active {
+      border-color: #000 #fff #fff #000;
+      transform: translate(1px, 1px);
+    }
+
+    .window-content {
+      background: #fff;
+      padding: 20px;
+      flex: 1;
+      overflow-y: auto;
+      max-height: 400px;
+    }
+
+    /* About Content */
+    .about-header {
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 20px;
+      background: #000080;
+      color: #fff;
+    }
+
+    .ascii-art {
+      font-family: 'Courier New', monospace;
+      font-size: 8px;
+      line-height: 1;
+      white-space: pre;
+      color: #00ff00;
+    }
+
+    .profile-section {
+      border: 2px solid;
+      border-color: #808080 #fff #fff #808080;
+      padding: 15px;
+      margin-bottom: 15px;
+      background: #f0f0f0;
+    }
+
+    .profile-section h3 {
+      font-size: 14px;
+      margin-bottom: 10px;
+      color: #000080;
+      border-bottom: 2px solid #000080;
+      padding-bottom: 4px;
+    }
+
+    .profile-section p {
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    .profile-section ul {
+      margin-left: 20px;
+      font-size: 12px;
+    }
+
+    .profile-section ul li {
+      margin-bottom: 4px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 15px;
+      justify-content: center;
+    }
+
+    .win95-btn {
+      padding: 6px 20px;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #fff #000 #000 #fff;
+      font-family: 'MS Sans Serif', sans-serif;
+      font-size: 11px;
+      cursor: pointer;
+      min-width: 80px;
+    }
+
+    .win95-btn:hover {
+      background: #d4d4d4;
+    }
+
+    .win95-btn:active {
+      border-color: #000 #fff #fff #000;
+      transform: translate(1px, 1px);
+    }
+
+    /* Taskbar */
+    .taskbar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: #c0c0c0;
+      border-top: 2px solid #fff;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      gap: 4px;
+      z-index: 1000;
+    }
+
+    .start-btn {
+      padding: 4px 8px;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #fff #000 #000 #fff;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .start-btn:active {
+      border-color: #000 #fff #fff #000;
+    }
+
+    .start-menu {
+      position: fixed;
+      bottom: 48px;
+      left: 2px;
+      width: 280px;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #fff #000 #000 #fff;
+      box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 2000;
+    }
+
+    .start-menu.active {
+      display: block;
+      animation: slideUp 0.15s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .start-menu-header {
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
+      padding: 4px 8px;
+      font-weight: bold;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      writing-mode: vertical-rl;
+      float: left;
+      height: 100%;
+    }
+
+    .start-menu-content {
+      margin-left: 32px;
+    }
+
+    .menu-item {
+      padding: 8px 40px 8px 12px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      border: 1px solid transparent;
+    }
+
+    .menu-item:hover {
+      background: #000080;
+      color: #fff;
+    }
+
+    .menu-item-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .menu-item.has-submenu::after {
+      content: '▶';
+      position: absolute;
+      right: 8px;
+      font-size: 8px;
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: #808080;
+      margin: 2px 0;
+      border-top: 1px solid #fff;
+    }
+
+    .submenu {
+      position: absolute;
+      left: 100%;
+      top: -2px;
+      width: 220px;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #fff #000 #000 #fff;
+      box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+      display: none;
+      z-index: 3000;
+    }
+
+    .menu-item:hover .submenu {
+      display: block;
+      animation: slideRight 0.1s ease-out;
+    }
+
+    @keyframes slideRight {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .loading-text {
+      color: #808080;
+      font-style: italic;
+    }
+
+    .start-logo {
+      width: 20px;
+      height: 20px;
+      background: #ff0000;
+      font-weight: bold;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-style: italic;
+    }
+
+    .blink {
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Desktop Icons -->
+  <div class="desktop">
+    <div class="icon" data-window="about">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect fill='%23c0c0c0' width='48' height='48'/%3E%3Cpath fill='%23000080' d='M8 8h32v32H8z'/%3E%3Ctext x='24' y='30' font-family='Arial' font-size='20' fill='%23fff' text-anchor='middle'%3E%3F%3C/text%3E%3C/svg%3E" alt="About Me">
+      <span class="icon-label">About Me.exe</span>
+    </div>
+
+    <div class="icon" data-window="projects">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect fill='%23ffff00' width='40' height='32' x='4' y='8'/%3E%3Cpath fill='%23808000' d='M4 8 L20 0 L40 0 L44 8 Z'/%3E%3C/svg%3E" alt="Projects">
+      <span class="icon-label">My Projects</span>
+    </div>
+
+    <div class="icon" data-window="skills">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect fill='%23fff' stroke='%23000' stroke-width='2' width='36' height='44' x='6' y='2'/%3E%3Cpath fill='none' stroke='%23000080' stroke-width='2' d='M12 10h24M12 18h24M12 26h24M12 34h16'/%3E%3C/svg%3E" alt="Skills">
+      <span class="icon-label">Skills.txt</span>
+    </div>
+
+    <div class="icon" data-window="contact">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect fill='%23f0f0f0' stroke='%23000' width='44' height='32' x='2' y='8'/%3E%3Cpath fill='%23000080' d='M2 8 L24 24 L46 8'/%3E%3C/svg%3E" alt="Contact">
+      <span class="icon-label">Contact.eml</span>
+    </div>
+
+    <div class="icon" onclick="window.open('https://github.com', '_blank')">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Ccircle fill='%23000' cx='24' cy='24' r='20'/%3E%3Cpath fill='%23fff' d='M24 10c-7.7 0-14 6.3-14 14 0 6.2 4 11.4 9.6 13.3.7.1 1-.3 1-.7v-2.6c-3.9.8-4.7-1.9-4.7-1.9-.6-1.6-1.5-2-1.5-2-1.2-.8.1-.8.1-.8 1.4.1 2.1 1.4 2.1 1.4 1.2 2.1 3.2 1.5 4 1.1.1-.9.5-1.5.9-1.8-3-.3-6.1-1.5-6.1-6.7 0-1.5.5-2.7 1.4-3.7-.1-.3-.6-1.7.1-3.5 0 0 1.1-.4 3.7 1.4 1.1-.3 2.2-.5 3.4-.5 1.1 0 2.3.2 3.4.5 2.6-1.7 3.7-1.4 3.7-1.4.7 1.8.3 3.2.1 3.5.9 1 1.4 2.2 1.4 3.7 0 5.3-3.2 6.4-6.2 6.7.5.4.9 1.2.9 2.5v3.7c0 .4.3.8 1 .7 5.6-1.9 9.6-7.1 9.6-13.3 0-7.7-6.3-14-14-14z'/%3E%3C/svg%3E" alt="GitHub">
+      <span class="icon-label">GitHub.url</span>
+    </div>
+
+    <div class="icon">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect fill='%23008080' width='48' height='48'/%3E%3Cpath fill='%23fff' d='M12 12h24v4H12zM12 20h24v4H12zM12 28h16v4H12z'/%3E%3C/svg%3E" alt="Recycle Bin">
+      <span class="icon-label">Recycle Bin</span>
+    </div>
+  </div>
+
+  <!-- About Me Window -->
+  <div class="window" id="about-window">
+    <div class="window-titlebar">
+      <div class="window-title">
+        <span>📄</span>
+        About Me - Notepad
+      </div>
+      <div class="window-controls">
+        <div class="window-btn">_</div>
+        <div class="window-btn">□</div>
+        <div class="window-btn" onclick="closeWindow('about-window')">×</div>
+      </div>
+    </div>
+    <div class="window-content">
+      <div class="about-header">
+        <pre class="ascii-art">
+  ___   ____ ____ _  _    ____ ____ _  _ ____ 
+ |  _] |  | |  | |_/     |__|  |__ |\ | |  |
+ |__|  |__| |__| | \_    |  | ___] | \| |__|
+        </pre>
+      </div>
+
+      <div class="profile-section">
+        <h3>&gt;&gt; SYSTEM.INFO</h3>
+        <p><strong>Name:</strong> 张思远</p>
+        <p><strong>Location:</strong> Beijing</p>
+        <p><strong>Role:</strong> Full Stack Developer</p>
+        <p><strong>Status:</strong> <span class="blink">● ONLINE</span></p>
+        <p>A passionate developer who loves building retro-inspired modern web applications. Combining the nostalgia of 90s computing with today's technology.</p>
+      </div>
+
+      <div class="profile-section">
+        <h3>&gt;&gt; EXPERIENCE.LOG</h3>
+        <ul>
+          <li>5+ years in web development</li>
+          <li>Expert in JavaScript, React, Node.js</li>
+          <li>Love for retro computing aesthetics</li>
+          <li>Open source contributor</li>
+        </ul>
+      </div>
+
+      <div class="button-group">
+        <button class="win95-btn" onclick="openWindow('projects-window')">View Projects</button>
+        <button class="win95-btn" onclick="openWindow('contact-window')">Contact Me</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Projects Window -->
+  <div class="window" id="projects-window">
+    <div class="window-titlebar">
+      <div class="window-title">
+        <span>📁</span>
+        My Projects
+      </div>
+      <div class="window-controls">
+        <div class="window-btn">_</div>
+        <div class="window-btn">□</div>
+        <div class="window-btn" onclick="closeWindow('projects-window')">×</div>
+      </div>
+    </div>
+    <div class="window-content">
+      <div class="profile-section">
+        <h3>&gt;&gt; PROJECT_001.EXE</h3>
+        <p><strong>Retro Web Framework</strong></p>
+        <p>A CSS framework that brings Windows 95 aesthetics to modern web applications. Complete with pixel-perfect UI components.</p>
+        <button class="win95-btn" onclick="alert('Opening project...')">Open</button>
+      </div>
+
+      <div class="profile-section">
+        <h3>&gt;&gt; PROJECT_002.EXE</h3>
+        <p><strong>Terminal Portfolio</strong></p>
+        <p>An interactive terminal-style portfolio built with React and TypeScript. Features ASCII art and command-line navigation.</p>
+        <button class="win95-btn" onclick="alert('Opening project...')">Open</button>
+      </div>
+
+      <div class="profile-section">
+        <h3>&gt;&gt; PROJECT_003.EXE</h3>
+        <p><strong>Pixel Art Generator</strong></p>
+        <p>Web-based tool for creating pixel art with a nostalgic MS Paint-inspired interface. Export to multiple formats.</p>
+        <button class="win95-btn" onclick="alert('Opening project...')">Open</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skills Window -->
+  <div class="window" id="skills-window">
+    <div class="window-titlebar">
+      <div class="window-title">
+        <span>📝</span>
+        Skills.txt - Notepad
+      </div>
+      <div class="window-controls">
+        <div class="window-btn">_</div>
+        <div class="window-btn">□</div>
+        <div class="window-btn" onclick="closeWindow('skills-window')">×</div>
+      </div>
+    </div>
+    <div class="window-content">
+      <div class="profile-section">
+        <h3>&gt;&gt; FRONTEND.SKILLS</h3>
+        <ul>
+          <li>HTML5, CSS3, JavaScript (ES6+)</li>
+          <li>React, Vue.js, Next.js</li>
+          <li>Tailwind CSS, SASS</li>
+          <li>Responsive Design</li>
+        </ul>
+      </div>
+
+      <div class="profile-section">
+        <h3>&gt;&gt; BACKEND.SKILLS</h3>
+        <ul>
+          <li>Node.js, Express</li>
+          <li>Python, Django</li>
+          <li>PostgreSQL, MongoDB</li>
+          <li>RESTful APIs, GraphQL</li>
+        </ul>
+      </div>
+
+      <div class="profile-section">
+        <h3>&gt;&gt; TOOLS.SKILLS</h3>
+        <ul>
+          <li>Git, GitHub</li>
+          <li>Docker, CI/CD</li>
+          <li>VS Code, Terminal</li>
+          <li>Figma, Photoshop</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact Window -->
+  <div class="window" id="contact-window">
+    <div class="window-titlebar">
+      <div class="window-title">
+        <span>✉️</span>
+        Contact - Outlook Express
+      </div>
+      <div class="window-controls">
+        <div class="window-btn">_</div>
+        <div class="window-btn">□</div>
+        <div class="window-btn" onclick="closeWindow('contact-window')">×</div>
+      </div>
+    </div>
+    <div class="window-content">
+      <div class="profile-section">
+        <h3>&gt;&gt; CONTACT.INFO</h3>
+        <p><strong>Email:</strong> <a href="mailto:john@developer.com">john@developer.com</a></p>
+        <p><strong>GitHub:</strong> <a href="https://github.com" target="_blank">github.com/johndeveloper</a></p>
+        <p><strong>LinkedIn:</strong> <a href="https://linkedin.com" target="_blank">linkedin.com/in/johndeveloper</a></p>
+        <p><strong>Twitter:</strong> <a href="https://twitter.com" target="_blank">@johndeveloper</a></p>
+      </div>
+
+      <div class="profile-section">
+        <h3>&gt;&gt; MESSAGE.FORM</h3>
+        <p style="margin-bottom: 10px;">Send me a message:</p>
+        <textarea style="width: 100%; height: 100px; font-family: 'Courier New', monospace; border: 2px inset; padding: 8px;" placeholder="Type your message here..."></textarea>
+        <div class="button-group" style="justify-content: flex-start; margin-top: 10px;">
+          <button class="win95-btn" onclick="alert('Message sent! (Not really, this is a demo)')">Send</button>
+          <button class="win95-btn" onclick="closeWindow('contact-window')">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Taskbar -->
+  <div class="taskbar">
+    <!-- Updated Start button with menu toggle function -->
+    <button class="start-btn" onclick="toggleStartMenu()">
+      <div class="start-logo">W</div>
+      Start
+    </button>
+    <div class="taskbar-clock" id="clock">12:00 PM</div>
+  </div>
+
+  <!-- Adding Start menu with mock data -->
+  <div class="start-menu" id="start-menu">
+    <div class="start-menu-header">Windows 95</div>
+    <div class="start-menu-content" id="start-menu-items">
+      <div class="menu-item">
+        <div class="menu-item-icon">⏳</div>
+        <span class="loading-text">Loading programs...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Icon click handler
+    document.querySelectorAll('.icon[data-window]').forEach(icon => {
+      icon.addEventListener('click', function() {
+        const windowId = this.dataset.window + '-window';
+        openWindow(windowId);
+      });
+
+      icon.addEventListener('dblclick', function() {
+        const windowId = this.dataset.window + '-window';
+        openWindow(windowId);
+      });
+    });
+
+    // Icon selection
+    document.querySelectorAll('.icon').forEach(icon => {
+      icon.addEventListener('click', function(e) {
+        if (!this.dataset.window) return;
+        
+        document.querySelectorAll('.icon').forEach(i => i.classList.remove('selected'));
+        this.classList.add('selected');
+      });
+    });
+
+    // Window functions
+    function openWindow(windowId) {
+      const window = document.getElementById(windowId);
+      if (window) {
+        window.classList.add('active');
+      }
+    }
+
+    function closeWindow(windowId) {
+      const window = document.getElementById(windowId);
+      if (window) {
+        window.classList.remove('active');
+      }
+    }
+
+    // Make windows draggable
+    document.querySelectorAll('.window').forEach(win => {
+      const titlebar = win.querySelector('.window-titlebar');
+      let isDragging = false;
+      let currentX;
+      let currentY;
+      let initialX;
+      let initialY;
+
+      titlebar.addEventListener('mousedown', dragStart);
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('mouseup', dragEnd);
+
+      function dragStart(e) {
+        if (e.target.classList.contains('window-btn')) return;
+        
+        initialX = e.clientX - win.offsetLeft;
+        initialY = e.clientY - win.offsetTop;
+        isDragging = true;
+      }
+
+      function drag(e) {
+        if (!isDragging) return;
+        
+        e.preventDefault();
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+
+        win.style.left = currentX + 'px';
+        win.style.top = currentY + 'px';
+        win.style.transform = 'none';
+      }
+
+      function dragEnd() {
+        isDragging = false;
+      }
+    });
+
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      
+      document.getElementById('clock').textContent = `${displayHours}:${minutes} ${ampm}`;
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    let startMenuVisible = false;
+
+    // Mock API to fetch menu items
+    async function fetchMenuItems() {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          resolve([
+            {
+              id: 'programs',
+              name: 'Programs',
+              icon: '📁',
+              submenu: [
+                { id: 'notepad', name: 'Notepad', icon: '📝', action: () => openWindow('about-window') },
+                { id: 'paint', name: 'Paint', icon: '🎨', action: () => alert('MS Paint - Coming Soon!') },
+                { id: 'calculator', name: 'Calculator', icon: '🔢', action: () => alert('Calculator.exe') },
+                { id: 'winamp', name: 'Winamp', icon: '🎵', action: () => alert('Winamp - It really whips the llama\'s ass!') },
+                { id: 'solitaire', name: 'Solitaire', icon: '🃏', action: () => alert('Starting Solitaire...') }
+              ]
+            },
+            {
+              id: 'documents',
+              name: 'Documents',
+              icon: '📄',
+              submenu: [
+                { id: 'resume', name: 'Resume.doc', icon: '📋', action: () => alert('Opening Resume...') },
+                { id: 'portfolio', name: 'Portfolio.pdf', icon: '📑', action: () => openWindow('projects-window') },
+                { id: 'cv', name: 'CV.txt', icon: '📝', action: () => openWindow('skills-window') }
+              ]
+            },
+            {
+              id: 'settings',
+              name: 'Settings',
+              icon: '⚙️',
+              submenu: [
+                { id: 'control-panel', name: 'Control Panel', icon: '🎛️', action: () => alert('Control Panel') },
+                { id: 'display', name: 'Display', icon: '🖥️', action: () => alert('Display Settings') },
+                { id: 'sounds', name: 'Sounds', icon: '🔊', action: () => alert('Sound Settings') },
+                { id: 'network', name: 'Network', icon: '🌐', action: () => alert('Network Settings') }
+              ]
+            },
+            { id: 'divider1', isDivider: true },
+            {
+              id: 'find',
+              name: 'Find',
+              icon: '🔍',
+              submenu: [
+                { id: 'find-files', name: 'Files or Folders...', icon: '📂', action: () => alert('Search for files...') },
+                { id: 'find-computer', name: 'Computer...', icon: '💻', action: () => alert('Search network...') },
+                { id: 'find-internet', name: 'On the Internet...', icon: '🌍', action: () => alert('Internet Explorer Search') }
+              ]
+            },
+            {
+              id: 'help',
+              name: 'Help',
+              icon: '❓',
+              action: () => alert('Windows 95 Help\n\nFor help, press F1 at any time.')
+            },
+            {
+              id: 'run',
+              name: 'Run...',
+              icon: '▶️',
+              action: () => {
+                const cmd = prompt('Type the name of a program, folder, document, or Internet resource:');
+                if (cmd) alert(`Running: ${cmd}\n\nJust kidding, this is a demo!`);
+              }
+            },
+            { id: 'divider2', isDivider: true },
+            {
+              id: 'shutdown',
+              name: 'Shut Down...',
+              icon: '🔌',
+              action: () => {
+                if (confirm('Are you sure you want to shut down the computer?')) {
+                  document.body.style.background = '#000';
+                  document.body.innerHTML = '<div style="color:#fff;font-family:monospace;padding:50px;font-size:20px;">It\'s now safe to turn off your computer.</div>';
+                }
+              }
+            }
+          ]);
+        }, 800);
+      });
+    }
+
+    function toggleStartMenu() {
+      startMenuVisible = !startMenuVisible;
+      const menu = document.getElementById('start-menu');
+      
+      if (startMenuVisible) {
+        menu.classList.add('active');
+        loadStartMenu();
+      } else {
+        menu.classList.remove('active');
+      }
+    }
+
+    async function loadStartMenu() {
+      const container = document.getElementById('start-menu-items');
+      const items = await fetchMenuItems();
+      
+      container.innerHTML = '';
+      
+      items.forEach(item => {
+        if (item.isDivider) {
+          const divider = document.createElement('div');
+          divider.className = 'menu-divider';
+          container.appendChild(divider);
+        } else {
+          const menuItem = document.createElement('div');
+          menuItem.className = 'menu-item';
+          if (item.submenu) {
+            menuItem.classList.add('has-submenu');
+          }
+          
+          menuItem.innerHTML = `
+            <div class="menu-item-icon">${item.icon}</div>
+            <span>${item.name}</span>
+          `;
+          
+          if (item.submenu) {
+            const submenu = document.createElement('div');
+            submenu.className = 'submenu';
+            
+            item.submenu.forEach(subItem => {
+              const subMenuItem = document.createElement('div');
+              subMenuItem.className = 'menu-item';
+              subMenuItem.innerHTML = `
+                <div class="menu-item-icon">${subItem.icon}</div>
+                <span>${subItem.name}</span>
+              `;
+              
+              subMenuItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (subItem.action) subItem.action();
+                toggleStartMenu();
+              });
+              
+              submenu.appendChild(subMenuItem);
+            });
+            
+            menuItem.appendChild(submenu);
+          } else if (item.action) {
+            menuItem.addEventListener('click', () => {
+              item.action();
+              toggleStartMenu();
+            });
+          }
+          
+          container.appendChild(menuItem);
+        }
+      });
+    }
+
+    // Close start menu when clicking outside
+    document.addEventListener('click', (e) => {
+      const startMenu = document.getElementById('start-menu');
+      const startBtn = document.querySelector('.start-btn');
+      
+      if (startMenuVisible && 
+          !startMenu.contains(e.target) && 
+          !startBtn.contains(e.target)) {
+        toggleStartMenu();
+      }
+    });
+
+    // Preload menu items on page load
+    fetchMenuItems();
+
+    // Open About window by default
+    setTimeout(() => openWindow('about-window'), 500);
+  </script>
+</body>
+</html>
