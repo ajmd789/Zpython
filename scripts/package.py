@@ -217,7 +217,8 @@ gunicorn {WSGI_MODULE} \
     --timeout {GUNICORN_TIMEOUT} \
     --log-level info \
     --access-logfile access.log \
-    --error-logfile error.log > gunicorn_start.log 2>&1 &
+    --error-logfile error.log \
+    --chdir "$(dirname "$(dirname "$0")")" > gunicorn_start.log 2>&1 &
 
 # 检查gunicorn是否成功启动
 if [ $? -ne 0 ]; then
@@ -227,7 +228,7 @@ fi
 
 # 启动服务监控脚本
 echo "启动服务监控脚本..."
-python ../monitor_server.py > monitor_start.log 2>&1 &
+python "$(dirname "$(dirname "$0")")/monitor_server.py" > monitor_start.log 2>&1 &
 
 # 检查监控脚本是否成功启动
 if [ $? -ne 0 ]; then
