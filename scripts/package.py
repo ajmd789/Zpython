@@ -4,6 +4,7 @@ import subprocess
 import time
 import platform
 import logging
+import traceback
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import shutil
@@ -64,9 +65,9 @@ logger.setLevel(logging.DEBUG)
 # 日志格式
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-# 控制台处理器
+# 控制台处理器 - 设置为DEBUG级别以输出更多详细信息
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
+console_handler.setLevel(logging.DEBUG)  # 修改为DEBUG级别
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
@@ -82,24 +83,37 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 def run_cmd(cmd, desc="执行命令", cwd=None):
-    """跨平台执行命令，带日志输出"""
+    """跨平台执行命令，带详细日志输出"""
     logger.info(f"\n=== {desc} ===")
     logger.info(f"命令：{cmd}")
     logger.info(f"工作目录：{cwd or os.getcwd()}")
+    logger.debug(f"开始执行命令：{cmd}")
     try:
         result = subprocess.run(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="ignore", cwd=cwd
         )
+        logger.debug(f"命令执行完成，返回码：{result.returncode}")
+        
+        # 输出完整的stdout和stderr到调试日志
+        if result.stdout:
+            logger.debug(f"命令输出(stdout)：\n{result.stdout}")
+        if result.stderr:
+            logger.debug(f"命令错误(stderr)：\n{result.stderr}")
+        
         if result.returncode == 0:
             stdout_content = result.stdout[:200] if result.stdout else ""  # 处理None情况
-            logger.info(f"成功：{stdout_content}...")  # 只打印前200字符，避免输出过长
+            logger.info(f"成功：{stdout_content}...")
+            logger.debug(f"命令执行成功，完整输出：\n{result.stdout}")
             return True
         else:
-            stderr_content = result.stderr if result.stderr else ""  # 处理None情况
-            logger.error(f"失败：{stderr_content}")
+            logger.error(f"失败：命令返回非零码 {result.returncode}")
+            logger.error(f"错误输出：\n{result.stderr}")
+            if result.stdout:
+                logger.error(f"命令输出：\n{result.stdout}")
             return False
     except Exception as e:
         logger.error(f"执行命令时出错：{str(e)}")
+        logger.debug(f"异常详情：{traceback.format_exc()}")
         return False
 
 def git_pull():
