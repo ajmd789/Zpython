@@ -112,14 +112,25 @@ def check_virtual_environment():
     
     # 检查虚拟环境是否已激活
     if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
-        logger.info("✓ 虚拟环境已激活")
+        logger.info("虚拟环境已激活")
         return True
     
     # 检查虚拟环境是否存在
     if venv_path.exists():
         logger.info(f"检测到虚拟环境目录: {venv_path}")
-        logger.warning("⚠️  虚拟环境未激活")
-        logger.info(f"请运行: source {VENV_NAME}/bin/activate")
+        logger.warning("虚拟环境未激活")
+        
+        # 根据操作系统提示不同的激活命令
+        if platform.system() == 'Windows':
+            logger.info(f"请运行: {VENV_NAME}\Scripts\activate")
+        else:
+            logger.info(f"请运行: source {VENV_NAME}/bin/activate")
+        
+        # 在Windows开发环境下，允许跳过虚拟环境检查继续执行
+        if platform.system() == 'Windows':
+            logger.info("Windows开发环境下，跳过虚拟环境检查继续执行...")
+            return True
+        
         return False
     
     # 虚拟环境不存在，询问是否创建
@@ -143,7 +154,7 @@ def create_virtual_environment():
         import venv
         logger.info(f"正在创建虚拟环境: {venv_path}")
         venv.create(venv_path, with_pip=True)
-        logger.info("✓ 虚拟环境创建成功")
+        logger.info("虚拟环境创建成功")
         
         # 提示用户激活虚拟环境
         logger.info("请激活虚拟环境后重新运行脚本:")
@@ -180,7 +191,7 @@ def install_dependencies():
         ], capture_output=True, text=True, cwd=PROJECT_ROOT)
         
         if result.returncode == 0:
-            logger.info("✓ 依赖安装成功")
+            logger.info("依赖安装成功")
             return True
         else:
             logger.error(f"依赖安装失败: {result.stderr}")
@@ -195,9 +206,14 @@ def check_django_setup():
     logger.info("检查Django配置...")
     
     try:
+        # 确保项目根目录在Python路径中
+        if PROJECT_ROOT not in sys.path:
+            sys.path.insert(0, PROJECT_ROOT)
+            logger.debug(f"已将项目根目录添加到Python路径: {PROJECT_ROOT}")
+        
         # 检查是否能导入Django
         import django
-        logger.info(f"✓ Django版本: {django.VERSION}")
+        logger.info(f"Django版本: {django.VERSION}")
         
         # 设置Django环境
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'zproject.settings')
@@ -208,7 +224,7 @@ def check_django_setup():
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
-        logger.info("✓ 数据库连接正常")
+        logger.info("数据库连接正常")
         
         return True
         
@@ -224,12 +240,20 @@ def collect_static_files():
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'zproject.settings')
         
         # 运行collectstatic命令
+        # 确保在子进程中也能找到项目模块
+        env = os.environ.copy()
+        if PROJECT_ROOT not in sys.path:
+            pythonpath = PROJECT_ROOT
+        else:
+            pythonpath = ':'.join([PROJECT_ROOT] + sys.path)
+        env['PYTHONPATH'] = pythonpath
+        
         result = subprocess.run([
             sys.executable, DJANGO_ENTRY, "collectstatic", "--noinput"
-        ], capture_output=True, text=True, cwd=PROJECT_ROOT)
+        ], capture_output=True, text=True, cwd=PROJECT_ROOT, env=env)
         
         if result.returncode == 0:
-            logger.info("✓ 静态文件收集成功")
+            logger.info("静态文件收集成功")
             return True
         else:
             logger.warning(f"静态文件收集失败: {result.stderr}")
@@ -261,7 +285,7 @@ echo "项目根目录: $PROJECT_ROOT"
 # 激活虚拟环境
 if [ -f "$PROJECT_ROOT/{VENV_NAME}/bin/activate" ]; then
     source $PROJECT_ROOT/{VENV_NAME}/bin/activate
-    echo "✓ 虚拟环境已激活"
+    echo "虚拟环境已激活"
 else
     echo "错误：虚拟环境不存在！请先运行部署脚本创建虚拟环境。"
     exit 1
@@ -294,7 +318,7 @@ sleep 3
 
 # 检查Gunicorn是否成功启动
 if kill -0 $GUNICORN_PID 2>/dev/null; then
-    echo "✓ Gunicorn启动成功！"
+    echo "Gunicorn启动成功！"
     echo "服务正在运行，访问地址: http://{GUNICORN_BIND}"
     echo "日志文件: access.log, error.log"
 else
@@ -309,9 +333,9 @@ echo "启动服务监控脚本..."
 python "$(dirname "$(dirname "$0")")/monitor_server.py" > monitor_start.log 2>&1 &
 
 if [ $? -eq 0 ]; then
-    echo "✓ 监控脚本启动成功"
+    echo "监控脚本启动成功"
 else
-    echo "⚠️  监控脚本启动失败（非致命错误）"
+    echo "监控脚本启动失败（非致命错误）"
 fi
 
 echo ""
@@ -347,12 +371,12 @@ remaining_gunicorn=$(pgrep -f gunicorn | wc -l)
 remaining_monitor=$(pgrep -f monitor_server.py | wc -l)
 
 if [ $remaining_gunicorn -eq 0 ] && [ $remaining_monitor -eq 0 ]; then
-    echo "✓ 所有服务已停止"
+    echo "所有服务已停止"
 else
-    echo "⚠️  发现残留进程，强制终止..."
+    echo "发现残留进程，强制终止..."
     pkill -9 -f gunicorn
     pkill -9 -f monitor_server.py
-    echo "✓ 残留进程已终止"
+    echo "残留进程已终止"
 fi
 
 echo "服务停止完成！"
@@ -557,7 +581,7 @@ def test_service():
         response = requests.get(f"http://127.0.0.1:{PORT}/", timeout=10)
         
         if response.status_code == 200:
-            logger.info("✓ 服务测试成功！")
+            logger.info("服务测试成功！")
             logger.info(f"响应状态码: {response.status_code}")
             return True
         else:
@@ -590,11 +614,11 @@ def create_deploy_summary():
 - 操作系统: {platform.system()} {platform.release()}
 
 ## 文件生成
-✓ 启动脚本: dist/start_production.sh
-✓ 停止脚本: dist/stop_production.sh  
-✓ 服务配置: dist/zpython.service
-✓ 监控配置: dist/zpython-monitor.service
-✓ 安装脚本: dist/install_systemd_service.sh
+启动脚本: dist/start_production.sh
+停止脚本: dist/stop_production.sh  
+服务配置: dist/zpython.service
+监控配置: dist/zpython-monitor.service
+安装脚本: dist/install_systemd_service.sh
 
 ## 使用说明
 
@@ -714,7 +738,7 @@ def full_deployment():
     logger.info("=" * 60)
     
     print(f"\n{'=' * 60}")
-    print("    🎉 一键部署准备就绪！")
+    print("    一键部署准备就绪！")
     print(f"{'=' * 60}")
     print(f"\n项目路径: {PROJECT_ROOT}")
     print(f"部署端口: {PORT}")
