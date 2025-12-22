@@ -277,9 +277,10 @@ def generate_startup_scripts():
 
 # 进入脚本所在目录
 cd "$(dirname "$0")"
+SCRIPT_DIR=$(pwd)
 
-# 计算项目根目录（修复版）
-PROJECT_ROOT=$(cd "$(dirname "$(dirname "$0")")" && pwd)
+# 计算项目根目录（dist的父目录）
+PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 echo "项目根目录: $PROJECT_ROOT"
 
 # 激活虚拟环境
