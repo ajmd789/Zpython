@@ -254,9 +254,13 @@ def generate_startup_scripts():
 # 进入脚本所在目录
 cd "$(dirname "$0")"
 
+# 计算项目根目录（修复版）
+PROJECT_ROOT=$(cd "$(dirname "$(dirname "$0")")" && pwd)
+echo "项目根目录: $PROJECT_ROOT"
+
 # 激活虚拟环境
-if [ -f "../{VENV_NAME}/bin/activate" ]; then
-    source ../{VENV_NAME}/bin/activate
+if [ -f "$PROJECT_ROOT/{VENV_NAME}/bin/activate" ]; then
+    source $PROJECT_ROOT/{VENV_NAME}/bin/activate
     echo "✓ 虚拟环境已激活"
 else
     echo "错误：虚拟环境不存在！请先运行部署脚本创建虚拟环境。"
@@ -268,14 +272,6 @@ echo "监听地址: {GUNICORN_BIND}"
 echo "Worker数量: {GUNICORN_WORKERS}"
 echo "超时时间: {GUNICORN_TIMEOUT}秒"
 echo ""
-
-# 计算项目根目录
-PROJECT_ROOT=$(cd "$(dirname "$(dirname "$0")")" && pwd)
-echo "项目根目录: $PROJECT_ROOT"
-
-# 设置PYTHONPATH环境变量
-export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
-echo "PYTHONPATH: $PYTHONPATH"
 
 # 使用gunicorn启动生产服务器
 echo "正在启动Gunicorn..."
