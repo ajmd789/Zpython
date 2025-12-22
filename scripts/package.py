@@ -192,7 +192,7 @@ def generate_deploy_files():
         return False
     # 生成Linux启动脚本（gunicorn）
     linux_script = f"""#!/bin/bash
-# Django项目生产环境启动脚本
+# Django项目生产环境启动脚本 - 修复版
 
 # 进入脚本所在目录
 cd "$(dirname "$0")"
@@ -210,15 +210,24 @@ echo "Worker数量: {GUNICORN_WORKERS}"
 echo "超时时间: {GUNICORN_TIMEOUT}秒"
 echo ""
 
+# 计算项目根目录
+PROJECT_ROOT=$(cd "$(dirname "$(dirname "$0")")" && pwd)
+echo "项目根目录: $PROJECT_ROOT"
+
+# 设置PYTHONPATH环境变量
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
+echo "PYTHONPATH: $PYTHONPATH"
+
 # 使用gunicorn启动生产服务器
 gunicorn {WSGI_MODULE} \
     --bind {GUNICORN_BIND} \
     --workers {GUNICORN_WORKERS} \
     --timeout {GUNICORN_TIMEOUT} \
-    --log-level info \
+    --log-level debug \
     --access-logfile access.log \
     --error-logfile error.log \
-    --chdir "$(dirname "$(dirname "$0")")" > gunicorn_start.log 2>&1 &
+    --pythonpath "$PROJECT_ROOT" \
+    --chdir "$PROJECT_ROOT" > gunicorn_start.log 2>&1 &
 
 # 检查gunicorn是否成功启动
 if [ $? -ne 0 ]; then
@@ -284,7 +293,7 @@ After=network.target
 User={user}
 Group={user}
 WorkingDirectory=PLACEHOLDER_PROJECT_ROOT
-ExecStart=PLACEHOLDER_PROJECT_ROOT/{VENV_NAME}/bin/gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS} --timeout {GUNICORN_TIMEOUT}
+ExecStart=bash -c 'export PYTHONPATH=PLACEHOLDER_PROJECT_ROOT:$PYTHONPATH && cd PLACEHOLDER_PROJECT_ROOT && PLACEHOLDER_PROJECT_ROOT/{VENV_NAME}/bin/gunicorn {WSGI_MODULE} --bind {GUNICORN_BIND} --workers {GUNICORN_WORKERS} --timeout {GUNICORN_TIMEOUT} --log-level debug --access-logfile access.log --error-logfile error.log --pythonpath PLACEHOLDER_PROJECT_ROOT --chdir PLACEHOLDER_PROJECT_ROOT'
 Restart=always
 
 [Install]
