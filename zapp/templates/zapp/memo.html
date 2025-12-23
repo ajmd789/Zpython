@@ -289,7 +289,7 @@
     const api = {
       // 获取所有备忘录
       async getAllMemos() {
-        const response = await fetch('/api/memos/');
+        const response = await fetch('/apipy/api/memos/');
         const data = await response.json();
         if (data.code !== 200) {
           throw new Error(data.message);
