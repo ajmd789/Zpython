@@ -2,6 +2,7 @@
 import sqlite3
 import os
 from datetime import datetime
+from django.utils import timezone
 
 # 数据库路径
 DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
@@ -46,7 +47,10 @@ class MemoService:
         """添加新备忘录"""
         try:
             self._create_table()  # 先尝试创建表
-            created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            # 获取UTC时间并转换为北京时间
+            utc_time = timezone.now()
+            beijing_time = utc_time.astimezone(timezone.get_current_timezone())
+            created_at = beijing_time.strftime('%Y-%m-%d %H:%M:%S')
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
