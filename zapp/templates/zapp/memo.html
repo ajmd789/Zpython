@@ -285,6 +285,15 @@
   </div>
 
   <script>
+    // 节流函数：每300毫秒最多执行一次
+    function throttle(func, delay) {
+      let timeoutId;
+      return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
     // Real API - 真实后端接口
     const api = {
       // 获取所有备忘录
@@ -335,7 +344,7 @@
 
       // 搜索备忘录
       async searchMemos(keyword) {
-        const response = await fetch(`/api/memos/search/?keyword=${encodeURIComponent(keyword)}`);
+        const response = await fetch(`/apipy/api/memos/search/?keyword=${encodeURIComponent(keyword)}`);
         const data = await response.json();
         if (data.code !== 200) {
           throw new Error(data.message);
@@ -415,7 +424,7 @@
       }
     }
 
-    async function searchMemos() {
+    async function performSearch() {
       const searchInput = document.getElementById('searchInput');
       const keyword = searchInput.value.trim();
 
@@ -428,6 +437,9 @@
         console.error('搜索失败:', error);
       }
     }
+
+    // 使用节流函数包装搜索功能，每300毫秒最多执行一次
+    const searchMemos = throttle(performSearch, 300);
 
     document.getElementById('memoInput').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
