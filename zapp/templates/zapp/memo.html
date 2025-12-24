@@ -285,11 +285,20 @@
   </div>
 
   <script>
+    // 节流函数：每300毫秒最多执行一次
+    function throttle(func, delay) {
+      let timeoutId;
+      return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
     // Real API - 真实后端接口
     const api = {
       // 获取所有备忘录
       async getAllMemos() {
-        const response = await fetch('/api/memos/');
+        const response = await fetch('/apipy/api/memos/');
         const data = await response.json();
         if (data.code !== 200) {
           throw new Error(data.message);
@@ -299,7 +308,7 @@
 
       // 添加备忘录
       async addMemo(content) {
-        const response = await fetch('/api/memos/add/', {
+        const response = await fetch('/apipy/api/memos/add/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -317,7 +326,7 @@
 
       // 删除备忘录
       async deleteMemo(id) {
-        const response = await fetch('/api/memos/delete/', {
+        const response = await fetch('/apipy/api/memos/delete/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -335,7 +344,7 @@
 
       // 搜索备忘录
       async searchMemos(keyword) {
-        const response = await fetch(`/api/memos/search/?keyword=${encodeURIComponent(keyword)}`);
+        const response = await fetch(`/apipy/api/memos/search/?keyword=${encodeURIComponent(keyword)}`);
         const data = await response.json();
         if (data.code !== 200) {
           throw new Error(data.message);
@@ -365,10 +374,10 @@
             <div style="flex: 1;">
               <strong>[#${String(index + 1).padStart(3, '0')}]</strong>
               <div class="memo-content">${memo.content}</div>
-              <div class="memo-time">${memo.createdAt}</div>
+              <div class="memo-time">${memo.created_at || ''}</div>
             </div>
             <div class="memo-actions">
-              <button onclick="deleteMemo(${memo.id})">DELETE</button>
+              <button onclick="deleteMemo(${memo.id})">删除</button>
             </div>
           </div>
         </div>
@@ -401,7 +410,7 @@
     }
 
     async function deleteMemo(id) {
-      if (!confirm('DELETE this memo?\n\nPress OK to confirm.')) {
+      if (!confirm('是否删除这条备忘录？\n\n点击确定删除。')) {
         return;
       }
 
@@ -415,7 +424,7 @@
       }
     }
 
-    async function searchMemos() {
+    async function performSearch() {
       const searchInput = document.getElementById('searchInput');
       const keyword = searchInput.value.trim();
 
@@ -428,6 +437,9 @@
         console.error('搜索失败:', error);
       }
     }
+
+    // 使用节流函数包装搜索功能，每300毫秒最多执行一次
+    const searchMemos = throttle(performSearch, 300);
 
     document.getElementById('memoInput').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
