@@ -217,6 +217,7 @@ def check_django_setup():
         
         # 设置Django环境
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'zproject.settings')
+        os.environ.setdefault('DJANGO_DEBUG', 'False')
         django.setup()
         
         # 检查数据库连接
@@ -238,6 +239,7 @@ def collect_static_files():
     
     try:
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'zproject.settings')
+        os.environ.setdefault('DJANGO_DEBUG', 'False')
         
         # 运行collectstatic命令
         # 确保在子进程中也能找到项目模块
@@ -300,6 +302,8 @@ echo ""
 
 # 使用gunicorn启动生产服务器
 echo "正在启动Gunicorn..."
+# 设置生产环境变量
+export DJANGO_DEBUG=False
 gunicorn {WSGI_MODULE} \
     --bind {GUNICORN_BIND} \
     --workers {GUNICORN_WORKERS} \
