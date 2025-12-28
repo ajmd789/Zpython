@@ -86,6 +86,33 @@
             opacity: 0.8;
         }
         
+        /* 开始播放按钮样式 */
+        #play-button-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 5vh;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        #play-button {
+            transition: transform 0.2s ease;
+        }
+        
+        #play-button:hover {
+            transform: scale(1.1);
+        }
+        
+        #play-button:active {
+            transform: scale(0.95);
+        }
+        
+        /* 隐藏按钮的样式 */
+        #play-button-container.hidden {
+            display: none;
+        }
+        
         /* 横屏样式调整 */
         @media screen and (orientation: landscape) {
             #timer {
@@ -103,6 +130,10 @@
             .prompt-content p {
                 font-size: 4vh;
             }
+            
+            #play-button-container {
+                margin-top: 3vh;
+            }
         }
     </style>
 </head>
@@ -110,13 +141,12 @@
     <div id="timer-container">
         <div id="timer">30</div>
         <div id="status">加油时间</div>
-    </div>
-
-    <!-- 用户交互提示 -->
-    <div id="interaction-prompt">
-        <div class="prompt-content">
-            <h2>点击开始锻炼</h2>
-            <p>请点击页面任意位置开始锻炼计时器</p>
+        <!-- 开始播放按钮 -->
+        <div id="play-button-container">
+            <svg id="play-button" width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="40" cy="40" r="38" stroke="#00ff00" stroke-width="4" fill="rgba(0, 255, 0, 0.1)"/>
+                <path d="M30 25L55 40L30 55V25Z" fill="#00ff00"/>
+            </svg>
         </div>
     </div>
 
@@ -129,7 +159,8 @@
         const statusElement = document.getElementById('status');
         const audioRefuel = document.getElementById('audio-refuel');
         const audioRest = document.getElementById('audio-rest');
-        const interactionPrompt = document.getElementById('interaction-prompt');
+        const playButtonContainer = document.getElementById('play-button-container');
+        const playButton = document.getElementById('play-button');
 
         // 状态常量
         const STATUS_REFUEL = '加油';
@@ -189,17 +220,15 @@
             
             userInteracted = true;
             
-            // 隐藏交互提示
-            interactionPrompt.style.display = 'none';
+            // 隐藏播放按钮
+            playButtonContainer.classList.add('hidden');
             
             // 开始播放音频和计时器
             playAudio(currentStatus);
             timerInterval = setInterval(timer, 1000);
             
-            // 移除所有交互事件监听器
-            document.removeEventListener('click', handleUserInteraction);
-            document.removeEventListener('touchstart', handleUserInteraction);
-            document.removeEventListener('keydown', handleUserInteraction);
+            // 移除播放按钮的事件监听器
+            playButtonContainer.removeEventListener('click', handleUserInteraction);
         }
 
         // 页面加载完成后初始化
@@ -208,10 +237,8 @@
         // 处理窗口大小变化
         window.addEventListener('resize', updateDisplay);
 
-        // 添加用户交互事件监听器
-        document.addEventListener('click', handleUserInteraction);
-        document.addEventListener('touchstart', handleUserInteraction);
-        document.addEventListener('keydown', handleUserInteraction);
+        // 添加播放按钮事件监听器
+        playButtonContainer.addEventListener('click', handleUserInteraction);
     </script>
 </body>
 </html>
