@@ -55,6 +55,37 @@
             text-align: center;
         }
 
+        /* 用户交互提示样式 */
+        #interaction-prompt {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            cursor: pointer;
+        }
+        
+        .prompt-content {
+            text-align: center;
+            color: #fff;
+            font-family: 'Digital', sans-serif;
+        }
+        
+        .prompt-content h2 {
+            font-size: 8vw;
+            margin-bottom: 2vh;
+        }
+        
+        .prompt-content p {
+            font-size: 4vw;
+            opacity: 0.8;
+        }
+        
         /* 横屏样式调整 */
         @media screen and (orientation: landscape) {
             #timer {
@@ -64,6 +95,14 @@
             #status {
                 font-size: 8vh;
             }
+            
+            .prompt-content h2 {
+                font-size: 8vh;
+            }
+            
+            .prompt-content p {
+                font-size: 4vh;
+            }
         }
     </style>
 </head>
@@ -71,6 +110,14 @@
     <div id="timer-container">
         <div id="timer">30</div>
         <div id="status">加油时间</div>
+    </div>
+
+    <!-- 用户交互提示 -->
+    <div id="interaction-prompt">
+        <div class="prompt-content">
+            <h2>点击开始锻炼</h2>
+            <p>请点击页面任意位置开始锻炼计时器</p>
+        </div>
     </div>
 
     <audio id="audio-refuel" src="/apipy/static/加油.mp3" preload="auto"></audio>
@@ -82,6 +129,7 @@
         const statusElement = document.getElementById('status');
         const audioRefuel = document.getElementById('audio-refuel');
         const audioRest = document.getElementById('audio-rest');
+        const interactionPrompt = document.getElementById('interaction-prompt');
 
         // 状态常量
         const STATUS_REFUEL = '加油';
@@ -91,6 +139,8 @@
         // 初始化状态
         let currentStatus = STATUS_REFUEL;
         let countdown = DURATION;
+        let timerInterval = null;
+        let userInteracted = false;
 
         // 播放音频
         function playAudio(status) {
@@ -130,9 +180,26 @@
         // 初始化
         function init() {
             updateDisplay();
+            // 不自动播放音频，等待用户交互
+        }
+
+        // 处理用户交互
+        function handleUserInteraction() {
+            if (userInteracted) return;
+            
+            userInteracted = true;
+            
+            // 隐藏交互提示
+            interactionPrompt.style.display = 'none';
+            
+            // 开始播放音频和计时器
             playAudio(currentStatus);
-            // 每秒更新一次
-            setInterval(timer, 1000);
+            timerInterval = setInterval(timer, 1000);
+            
+            // 移除所有交互事件监听器
+            document.removeEventListener('click', handleUserInteraction);
+            document.removeEventListener('touchstart', handleUserInteraction);
+            document.removeEventListener('keydown', handleUserInteraction);
         }
 
         // 页面加载完成后初始化
@@ -140,6 +207,11 @@
 
         // 处理窗口大小变化
         window.addEventListener('resize', updateDisplay);
+
+        // 添加用户交互事件监听器
+        document.addEventListener('click', handleUserInteraction);
+        document.addEventListener('touchstart', handleUserInteraction);
+        document.addEventListener('keydown', handleUserInteraction);
     </script>
 </body>
 </html>
