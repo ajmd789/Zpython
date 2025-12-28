@@ -57,7 +57,8 @@
       background: #c0c0c0;
       border: 1px solid;
       border-color: #fff #000 #000 #fff;
-      font-size: 10px;
+      font-size: 12px;
+      line-height: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -208,6 +209,7 @@
   </style>
 </head>
 <body>
+  {{ initial_memos|json_script:"initial-memos-data" }}
   <div class="window">
     <!-- Windows 95 style title bar -->
     <div class="title-bar">
@@ -285,6 +287,10 @@
   </div>
 
   <script>
+    // 从服务端获取的初始备忘录数据
+    const initialMemosData = document.getElementById('initial-memos-data');
+    const initialMemos = initialMemosData ? JSON.parse(initialMemosData.textContent) : [];
+
     // 节流函数：每300毫秒最多执行一次
     function throttle(func, delay) {
       let timeoutId;
@@ -447,10 +453,10 @@
       }
     });
 
-    (async function init() {
+    (function init() {
+      // 使用服务端传递的初始备忘录数据，避免额外的API请求
       try {
-        const memos = await api.getAllMemos();
-        renderMemos(memos);
+        renderMemos(initialMemos);
       } catch (error) {
         console.error('初始化失败:', error);
       }

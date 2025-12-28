@@ -62,8 +62,13 @@ def index_with_slash(request):
     return render(request, 'zapp/index.html')
 
 def notebook(request):
-    # 渲染memo.html模板
-    return render(request, 'zapp/memo.html')
+    # 在服务端获取所有备忘录数据
+    try:
+        memos = memo_service.get_all_memos()
+    except Exception as e:
+        memos = []
+    # 将备忘录数据传递给模板
+    return render(request, 'zapp/memo.html', {'initial_memos': memos})
 
 
 @require_GET

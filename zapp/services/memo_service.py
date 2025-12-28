@@ -11,9 +11,13 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 # 数据库路径
-DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+# 对于Windows环境，使用相对路径或Windows风格的绝对路径
+if os.name == 'nt':
+    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
+else:
+    DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
 # Windows路径兼容
-WINDOWS_DB_PATH = DB_PATH.replace('/', '\\')
+WINDOWS_DB_PATH = DB_PATH
 
 class MemoService:
     def __init__(self):
