@@ -16,9 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('zapp.urls')),  # 包含 zapp 应用的路由
     path('apipy/', include('zapp.urls')),  # 包含 apipy 前缀的 zapp 应用路由
-]
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT) + static('/apipy/static/', document_root=settings.STATIC_ROOT)
