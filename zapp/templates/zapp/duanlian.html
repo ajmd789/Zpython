@@ -9,7 +9,7 @@
         /* 导入数字字体 */
         @font-face {
             font-family: 'Digital';
-            src: url('{% static "DS-DIGIB.TTF" %}') format('truetype');
+            src: url('/apipy/static/DS-DIGIB.TTF') format('truetype');
             font-weight: bold;
             font-style: normal;
         }
@@ -73,8 +73,8 @@
         <div id="status">加油时间</div>
     </div>
 
-    <audio id="audio-refuel" src="{% static "加油.mp3" %}" preload="auto"></audio>
-    <audio id="audio-rest" src="{% static "休息.mp3" %}" preload="auto"></audio>
+    <audio id="audio-refuel" src="/apipy/static/加油.mp3" preload="auto"></audio>
+    <audio id="audio-rest" src="/apipy/static/休息.mp3" preload="auto"></audio>
 
     <script>
         // 获取DOM元素
