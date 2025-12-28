@@ -11,9 +11,13 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 # 数据库路径
-DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+# 对于Windows环境，使用相对路径或Windows风格的绝对路径
+if os.name == 'nt':
+    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
+else:
+    DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
 # Windows路径兼容
-WINDOWS_DB_PATH = DB_PATH.replace('/', '\\')
+WINDOWS_DB_PATH = DB_PATH
 
 class MemoService:
     def __init__(self):
@@ -22,7 +26,8 @@ class MemoService:
         self.sensitive_words_file = os.path.join(os.path.dirname(__file__), 'sensitive_words.txt')
         # 加载并解码敏感词
         self.sensitive_words = self._load_sensitive_words()
-        # 不在初始化时创建表，而是在实际操作时尝试
+        # 在初始化时创建表（如果不存在），避免重复操作
+        self._create_table()
         
     def _load_sensitive_words(self):
         """从文件加载base64编码的敏感词并解码
@@ -99,7 +104,7 @@ class MemoService:
     def get_all_memos(self):
         """获取所有备忘录"""
         try:
-            self._create_table()  # 先尝试创建表
+            # 表已在初始化时创建，无需重复操作
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
@@ -145,8 +150,7 @@ class MemoService:
             # 2. 检查敏感词（使用原始内容进行检查）
             self._check_sensitive_words(trimmed_content)
             
-            # 3. 创建表（如果不存在）
-            self._create_table()
+            # 表已在初始化时创建，无需重复操作
             
             # 4. 获取北京时间
             utc_time = timezone.now()
@@ -209,7 +213,7 @@ class MemoService:
             except (TypeError, ValueError):
                 raise ValueError("Memo ID must be a positive integer")
             
-            self._create_table()  # 先尝试创建表
+            # 表已在初始化时创建，无需重复操作
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('DELETE FROM memos WHERE id = ?', (memo_id,))
@@ -253,7 +257,7 @@ class MemoService:
             if not keyword:
                 return self.get_all_memos()
             
-            self._create_table()  # 先尝试创建表
+            # 表已在初始化时创建，无需重复操作
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()

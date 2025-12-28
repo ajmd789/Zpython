@@ -1,5 +1,7 @@
 # zapp/services/file_service.py
 import os
+import base64
+import mimetypes
 
 def get_directory_contents(target_dir):
     """
@@ -67,4 +69,70 @@ def get_directory_contents(target_dir):
             "code": 500,
             "data": None,
             "message": f"读取目录失败：{str(e)}"
+        }
+
+def read_file(file_path, return_type='binary'):
+    """
+    读取文件内容，支持二进制和base64格式
+    :param file_path: 文件路径
+    :param return_type: 返回格式，'binary'或'base64'
+    :return: 包含状态码、数据、消息的字典
+    """
+    try:
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            return {
+                "code": 404,
+                "data": None,
+                "message": f"文件不存在：{file_path}"
+            }
+        
+        # 检查是否为文件
+        if not os.path.isfile(file_path):
+            return {
+                "code": 400,
+                "data": None,
+                "message": f"不是文件：{file_path}"
+            }
+        
+        # 获取文件的MIME类型
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if not mime_type:
+            mime_type = 'application/octet-stream'  # 默认MIME类型
+        
+        # 读取文件内容
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
+        # 根据返回类型处理内容
+        if return_type == 'base64':
+            # 转换为base64格式
+            base64_content = base64.b64encode(content).decode('utf-8')
+            return {
+                "code": 200,
+                "data": {
+                    "content": base64_content,
+                    "mime_type": mime_type,
+                    "encoding": "base64"
+                },
+                "message": "success"
+            }
+        else:
+            # 返回二进制内容
+            return {
+                "code": 200,
+                "data": {
+                    "content": content,
+                    "mime_type": mime_type,
+                    "encoding": "binary"
+                },
+                "message": "success"
+            }
+    
+    except Exception as e:
+        # 捕获文件读取异常
+        return {
+            "code": 500,
+            "data": None,
+            "message": f"读取文件失败：{str(e)}"
         }

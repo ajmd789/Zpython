@@ -17,4 +17,8 @@ urlpatterns = [
     path('index', views.index, name='index'),
     path('index/', views.index_with_slash, name='index_with_slash'),
     path('notebook', views.notebook, name='notebook'),
+    # 锻炼计时器页面
+    path('duanlian', views.duanlian, name='duanlian'),
+    # 静态文件访问接口
+    path('static/<path:file_path>', views.static_file_access, name='static_file_access'),
 ]

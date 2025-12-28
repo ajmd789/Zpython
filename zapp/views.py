@@ -1,9 +1,10 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render  # 关键：必须导入render！
 from django.conf import settings
 import time
-from .services.file_service import get_directory_contents
+import os
+from .services.file_service import get_directory_contents, read_file
 from .services.memo_service import memo_service
 from .stock_api_utils import StockApiUtils
 from django.views.decorators.http import require_GET, require_POST
@@ -62,8 +63,13 @@ def index_with_slash(request):
     return render(request, 'zapp/index.html')
 
 def notebook(request):
-    # 渲染memo.html模板
-    return render(request, 'zapp/memo.html')
+    # 在服务端获取所有备忘录数据
+    try:
+        memos = memo_service.get_all_memos()
+    except Exception as e:
+        memos = []
+    # 将备忘录数据传递给模板
+    return render(request, 'zapp/memo.html', {'initial_memos': memos})
 
 
 @require_GET
@@ -141,3 +147,62 @@ def search_memos(request):
         return JsonResponse({"code": 200, "data": memos, "message": "success"})
     except Exception as e:
         return JsonResponse({"code": 500, "data": None, "message": str(e)})
+
+
+def duanlian(request):
+    """锻炼计时器页面"""
+    return render(request, 'zapp/duanlian.html')
+
+@require_GET
+def static_file_access(request, file_path):
+    """
+    静态文件访问接口，支持二进制和base64格式返回
+    :param request: HTTP请求对象
+    :param file_path: 文件路径（相对于静态文件目录）
+    :return: 静态文件内容或错误响应
+    """
+    try:
+        # 确定静态文件目录
+        static_dirs = [settings.STATIC_ROOT] + list(settings.STATICFILES_DIRS)
+        
+        # 查找文件在哪个静态目录中
+        found_file = None
+        for static_dir in static_dirs:
+            full_path = os.path.join(static_dir, file_path)
+            if os.path.exists(full_path) and os.path.isfile(full_path):
+                found_file = full_path
+                break
+        
+        if not found_file:
+            return JsonResponse({"code": 404, "data": None, "message": "文件不存在"}, status=404)
+        
+        # 获取返回格式
+        return_type = request.GET.get('format', 'binary')
+        
+        # 读取文件
+        result = read_file(found_file, return_type)
+        
+        if result["code"] != 200:
+            return JsonResponse(result, status=result["code"])
+        
+        data = result["data"]
+        
+        # 根据返回格式构建响应
+        if return_type == 'base64':
+            return JsonResponse({
+                "code": 200,
+                "data": {
+                    "content": data["content"],
+                    "mime_type": data["mime_type"],
+                    "encoding": data["encoding"]
+                },
+                "message": "success"
+            })
+        else:
+            # 返回二进制文件
+            response = HttpResponse(data["content"], content_type=data["mime_type"])
+            response["Content-Disposition"] = f"inline; filename*=utf-8''{os.path.basename(file_path)}"
+            return response
+    
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": f"服务器错误：{str(e)}"}, status=500)
