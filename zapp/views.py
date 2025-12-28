@@ -146,3 +146,8 @@ def search_memos(request):
         return JsonResponse({"code": 200, "data": memos, "message": "success"})
     except Exception as e:
         return JsonResponse({"code": 500, "data": None, "message": str(e)})
+
+
+def duanlian(request):
+    """锻炼计时器页面"""
+    return render(request, 'zapp/duanlian.html')

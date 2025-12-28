@@ -20,4 +20,5 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('zapp.urls')),  # 包含 zapp 应用的路由
+    path('apipy/', include('zapp.urls')),  # 包含 apipy 前缀的 zapp 应用路由
 ]

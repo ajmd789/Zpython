@@ -17,4 +17,6 @@ urlpatterns = [
     path('index', views.index, name='index'),
     path('index/', views.index_with_slash, name='index_with_slash'),
     path('notebook', views.notebook, name='notebook'),
+    # 锻炼计时器页面
+    path('duanlian', views.duanlian, name='duanlian'),
 ]
