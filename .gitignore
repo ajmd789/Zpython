@@ -67,9 +67,3 @@ htmlcov/
 # Python bytecode files
 *.pyc
 __pycache__/
-zapp/__pycache__/urls.cpython-310.pyc
-zapp/__pycache__/views.cpython-310.pyc
-zapp/__pycache__/views.cpython-310.pyc
-zapp/templates/zapp/duanlian.html
-zapp/__pycache__/models.cpython-310.pyc
-zapp/services/__pycache__/file_service.cpython-310.pyc
