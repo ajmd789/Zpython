@@ -153,6 +153,11 @@ def duanlian(request):
     """锻炼计时器页面"""
     return render(request, 'zapp/duanlian.html')
 
+
+def timestamp(request):
+    """时间戳转换页面"""
+    return render(request, 'zapp/timestamp.html')
+
 @require_GET
 def static_file_access(request, file_path):
     """
@@ -205,4 +210,74 @@ def static_file_access(request, file_path):
             return response
     
     except Exception as e:
-        return JsonResponse({"code": 500, "data": None, "message": f"服务器错误：{str(e)}"}, status=500)
+            return JsonResponse({"code": 500, "data": None, "message": f"服务器错误：{str(e)}"}, status=500)
+
+
+@csrf_exempt
+@require_GET
+@require_POST
+def pythongetip(request):
+    """
+    采集访问者IP的API接口
+    支持GET和POST请求
+    """
+    import sqlite3
+    import os
+    from datetime import datetime
+    from django.utils import timezone
+    
+    try:
+        # 获取访问者真实IP
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            # 如果有多个IP，取第一个
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            # 直接从REMOTE_ADDR获取
+            ip = request.META.get('REMOTE_ADDR', 'unknown')
+        
+        # 数据库路径，与memo_service保持一致
+        if os.name == 'nt':
+            db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
+        else:
+            db_path = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+        
+        # 连接数据库并创建表（如果不存在）
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            # 创建ip_visit_records表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS ip_visit_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    visit_time TEXT NOT NULL,
+                    ip_address TEXT NOT NULL
+                )
+            ''')
+            
+            # 获取北京时间
+            utc_time = timezone.now()
+            beijing_time = utc_time.astimezone(timezone.get_current_timezone())
+            visit_time = beijing_time.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # 插入数据
+            cursor.execute(
+                'INSERT INTO ip_visit_records (visit_time, ip_address) VALUES (?, ?)',
+                (visit_time, ip)
+            )
+            conn.commit()
+        
+        # 返回成功响应
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "ip": ip,
+                "message": "IP采集成功"
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"IP采集失败：{str(e)}"
+        }, status=500)

@@ -9,6 +9,8 @@ urlpatterns = [
     path('api/timestamp/', views.timestamp_api, name='timestamp_api'),
     path('api/getAllCodes/', views.get_all_codes, name='get_all_codes'),
     path('api/fetch_stock/', views.fetch_stock, name='fetch_stock'),
+    # IP采集接口
+    path('api/pythongetip/', views.pythongetip, name='pythongetip'),
     # 备忘录接口
     path('api/memos/', views.get_all_memos, name='get_all_memos'),
     path('api/memos/add/', views.add_memo, name='add_memo'),
@@ -19,6 +21,8 @@ urlpatterns = [
     path('notebook', views.notebook, name='notebook'),
     # 锻炼计时器页面
     path('duanlian', views.duanlian, name='duanlian'),
+    # 时间戳转换页面
+    path('timestamp', views.timestamp, name='timestamp'),
     # 静态文件访问接口
     path('static/<path:file_path>', views.static_file_access, name='static_file_access'),
 ]

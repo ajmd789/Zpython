@@ -1,0 +1,473 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>时间戳转换</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .current-timestamp {
+            background-color: #f0f7ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .current-timestamp h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .timestamp-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .timestamp-unit {
+            font-size: 16px;
+            color: #666;
+            margin-left: 10px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .tab-container {
+            margin: 20px 0;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .conversion-section {
+            margin-bottom: 25px;
+        }
+
+        .conversion-section h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .conversion-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .btn-convert {
+            background-color: #28a745;
+            color: #fff;
+            padding: 10px 20px;
+            align-self: flex-end;
+        }
+
+        .btn-convert:hover {
+            background-color: #218838;
+        }
+
+        .result {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #333;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .timestamp-value {
+                font-size: 24px;
+            }
+
+            .conversion-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .input-group {
+                width: 100%;
+            }
+
+            .btn-convert {
+                align-self: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>时间戳转换</h1>
+        
+        <div class="current-timestamp">
+            <h2>当前时间戳</h2>
+            <div class="timestamp-value" id="currentTimestamp">0<span class="timestamp-unit" id="currentUnit">秒</span></div>
+            <div class="btn-group">
+                <button class="btn btn-secondary" id="toggleUnit">切换单位</button>
+                <button class="btn btn-primary" id="copyTimestamp">复制</button>
+                <button class="btn btn-danger" id="stopTimestamp">停止</button>
+            </div>
+        </div>
+
+        <div class="tab-container">
+            <div class="tabs">
+                <button class="tab active" data-tab="single">单个转换</button>
+                <button class="tab" data-tab="batch">批量转换</button>
+            </div>
+
+            <div class="tab-content active" id="single">
+                <div class="conversion-section">
+                    <h3>📅 时间戳转日期时间</h3>
+                    <div class="conversion-row">
+                        <div class="input-group">
+                            <label for="timestampToConvert">时间戳</label>
+                            <input type="text" id="timestampToConvert" placeholder="请输入时间戳">
+                        </div>
+                        <div class="input-group">
+                            <label for="timestampUnit">单位</label>
+                            <select id="timestampUnit">
+                                <option value="s">秒(s)</option>
+                                <option value="ms">毫秒(ms)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-convert" id="convertToDatetime">转换</button>
+                        <div class="input-group">
+                            <label for="datetimeResult">转换结果</label>
+                            <div class="result" id="datetimeResult"></div>
+                        </div>
+                        <div class="input-group">
+                            <label for="datetimeTimezone">时区</label>
+                            <select id="datetimeTimezone">
+                                <option value="Asia/Shanghai">Asia/Shanghai</option>
+                                <option value="UTC">UTC</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="conversion-section">
+                    <h3>⏱️ 日期时间转时间戳</h3>
+                    <div class="conversion-row">
+                        <div class="input-group">
+                            <label for="datetimeToConvert">日期时间</label>
+                            <input type="text" id="datetimeToConvert" placeholder="请输入日期时间，如2026-01-02 23:25:07">
+                        </div>
+                        <div class="input-group">
+                            <label for="datetimeToConvertTimezone">时区</label>
+                            <select id="datetimeToConvertTimezone">
+                                <option value="Asia/Shanghai">Asia/Shanghai</option>
+                                <option value="UTC">UTC</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-convert" id="convertToTimestamp">转换</button>
+                        <div class="input-group">
+                            <label for="timestampResult">转换结果</label>
+                            <div class="result" id="timestampResult"></div>
+                        </div>
+                        <div class="input-group">
+                            <label for="resultUnit">单位</label>
+                            <select id="resultUnit">
+                                <option value="s">秒(s)</option>
+                                <option value="ms">毫秒(ms)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="batch">
+                <div class="conversion-section">
+                    <h3>批量转换功能开发中...</h3>
+                    <p>敬请期待</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 当前时间戳更新状态
+        let isRunning = true;
+        let isSeconds = true;
+        let updateInterval;
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', function() {
+            // 获取访问者IP
+            fetch('/apipy/api/pythongetip/')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('IP采集成功:', data);
+                })
+                .catch(error => {
+                    console.error('IP采集失败:', error);
+                });
+
+            // 初始化当前时间戳
+            updateCurrentTimestamp();
+            // 每秒更新一次
+            updateInterval = setInterval(updateCurrentTimestamp, 1000);
+
+            // 绑定事件监听器
+            bindEventListeners();
+        });
+
+        // 更新当前时间戳
+        function updateCurrentTimestamp() {
+            if (!isRunning) return;
+            
+            const now = Date.now();
+            let timestamp;
+            let unit;
+            
+            if (isSeconds) {
+                timestamp = Math.floor(now / 1000);
+                unit = '秒';
+            } else {
+                timestamp = now;
+                unit = '毫秒';
+            }
+            
+            document.getElementById('currentTimestamp').innerHTML = timestamp + '<span class="timestamp-unit" id="currentUnit">' + unit + '</span>';
+        }
+
+        // 绑定事件监听器
+        function bindEventListeners() {
+            // 切换单位
+            document.getElementById('toggleUnit').addEventListener('click', function() {
+                isSeconds = !isSeconds;
+                updateCurrentTimestamp();
+            });
+
+            // 复制时间戳
+            document.getElementById('copyTimestamp').addEventListener('click', function() {
+                const timestampText = document.getElementById('currentTimestamp').textContent;
+                navigator.clipboard.writeText(timestampText.split('秒')[0].split('毫秒')[0])
+                    .then(() => {
+                        alert('已复制到剪贴板');
+                    })
+                    .catch(err => {
+                        console.error('复制失败:', err);
+                    });
+            });
+
+            // 停止/启动时间戳更新
+            document.getElementById('stopTimestamp').addEventListener('click', function() {
+                isRunning = !isRunning;
+                if (isRunning) {
+                    this.textContent = '停止';
+                    updateCurrentTimestamp();
+                    updateInterval = setInterval(updateCurrentTimestamp, 1000);
+                } else {
+                    this.textContent = '启动';
+                    clearInterval(updateInterval);
+                }
+            });
+
+            // 切换标签
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // 移除所有active类
+                    tabs.forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                    
+                    // 添加当前active类
+                    this.classList.add('active');
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+
+            // 时间戳转日期时间
+            document.getElementById('convertToDatetime').addEventListener('click', function() {
+                const timestamp = document.getElementById('timestampToConvert').value;
+                const unit = document.getElementById('timestampUnit').value;
+                const timezone = document.getElementById('datetimeTimezone').value;
+                
+                if (!timestamp) {
+                    document.getElementById('datetimeResult').textContent = '请输入时间戳';
+                    return;
+                }
+                
+                let msTimestamp;
+                if (unit === 's') {
+                    msTimestamp = parseInt(timestamp) * 1000;
+                } else {
+                    msTimestamp = parseInt(timestamp);
+                }
+                
+                const date = new Date(msTimestamp);
+                const options = {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false,
+                    timeZone: timezone
+                };
+                
+                document.getElementById('datetimeResult').textContent = date.toLocaleString('zh-CN', options);
+            });
+
+            // 日期时间转时间戳
+            document.getElementById('convertToTimestamp').addEventListener('click', function() {
+                const datetime = document.getElementById('datetimeToConvert').value;
+                const timezone = document.getElementById('datetimeToConvertTimezone').value;
+                const resultUnit = document.getElementById('resultUnit').value;
+                
+                if (!datetime) {
+                    document.getElementById('timestampResult').textContent = '请输入日期时间';
+                    return;
+                }
+                
+                // 将输入的日期时间转换为时间戳
+                const date = new Date(datetime);
+                let timestamp;
+                
+                if (resultUnit === 's') {
+                    timestamp = Math.floor(date.getTime() / 1000);
+                } else {
+                    timestamp = date.getTime();
+                }
+                
+                document.getElementById('timestampResult').textContent = timestamp;
+            });
+        }
+    </script>
+</body>
+</html>
