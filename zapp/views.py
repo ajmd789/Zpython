@@ -226,13 +226,23 @@ def pythongetip(request):
     from django.utils import timezone
     
     try:
-        # 获取访问者真实IP
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            # 如果有多个IP，取第一个
-            ip = x_forwarded_for.split(',')[0].strip()
-        else:
-            # 直接从REMOTE_ADDR获取
+        # 获取访问者真实IP，增强版，检查多个可能的HTTP头
+        ip = None
+        
+        # 从各种代理头中获取真实IP
+        for header in ['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CLIENT_IP', 'REMOTE_ADDR']:
+            if header in request.META:
+                potential_ip = request.META[header]
+                # 如果是X-Forwarded-For，取第一个IP
+                if header == 'HTTP_X_FORWARDED_FOR':
+                    potential_ip = potential_ip.split(',')[0].strip()
+                # 验证IP格式（简单验证）
+                if potential_ip and '.' in potential_ip:
+                    ip = potential_ip
+                    break
+        
+        # 如果没有获取到有效IP，使用unknown
+        if not ip:
             ip = request.META.get('REMOTE_ADDR', 'unknown')
         
         # 数据库路径，与memo_service保持一致
