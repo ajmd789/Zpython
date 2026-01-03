@@ -326,7 +326,9 @@
         // 页面加载完成后初始化
         window.addEventListener('load', function() {
             // 获取访问者IP
-            fetch('/apipy/api/pythongetip/')
+            fetch('/apipy/api/pythongetip/', {
+                method: 'POST'
+            })
                 .then(response => response.json())
                 .then(data => {
                     console.log('IP采集成功:', data);

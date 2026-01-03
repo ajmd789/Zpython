@@ -214,12 +214,11 @@ def static_file_access(request, file_path):
 
 
 @csrf_exempt
-@require_GET
 @require_POST
 def pythongetip(request):
     """
     采集访问者IP的API接口
-    支持GET和POST请求
+    只支持POST请求
     """
     import sqlite3
     import os
