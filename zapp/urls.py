@@ -28,4 +28,6 @@ urlpatterns = [
     # 股票代码管理API
     path('api/noUseCode/', views.noUseCode, name='noUseCode'),
     path('api/addTodayCode/', views.addTodayCode, name='addTodayCode'),
+    path('api/getCodeInfo/', views.getCodeInfo, name='getCodeInfo'),
+    path('api/getAllUsedCodes/', views.getAllUsedCodes, name='getAllUsedCodes'),
 ]

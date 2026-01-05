@@ -35,6 +35,7 @@ class StockCodeService:
                         code TEXT NOT NULL UNIQUE,
                         used INTEGER DEFAULT 0,
                         used_at TEXT,
+                        codeData TEXT,
                         created_at TEXT NOT NULL
                     )
                 ''')
@@ -101,7 +102,7 @@ class StockCodeService:
             logger.error(f"Database read error: {str(e)}")
             raise Exception("Database operation failed. Please try again later.")
     
-    def mark_code_as_used(self, code):
+    def mark_code_as_used(self, code, codeData=None):
         """标记股票代码为已使用"""
         try:
             # 获取当前时间
@@ -112,8 +113,8 @@ class StockCodeService:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    'UPDATE stock_codes SET used = 1, used_at = ? WHERE code = ?',
-                    (used_at, code)
+                    'UPDATE stock_codes SET used = 1, used_at = ?, codeData = ? WHERE code = ?',
+                    (used_at, codeData, code)
                 )
                 conn.commit()
                 
@@ -127,11 +128,42 @@ class StockCodeService:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('UPDATE stock_codes SET used = 0, used_at = NULL')
+                cursor.execute('UPDATE stock_codes SET used = 0, used_at = NULL, codeData = NULL')
                 conn.commit()
                 return cursor.rowcount
         except sqlite3.Error as e:
             logger.error(f"Database update error: {str(e)}")
+            raise Exception("Database operation failed. Please try again later.")
+    
+    def get_code_info(self, code):
+        """获取指定股票代码的详细信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM stock_codes WHERE code = ?', (code,))
+                code_row = cursor.fetchone()
+                
+                if not code_row:
+                    return None
+                
+                return dict(code_row)
+        except sqlite3.Error as e:
+            logger.error(f"Database read error: {str(e)}")
+            raise Exception("Database operation failed. Please try again later.")
+    
+    def get_all_used_codes(self):
+        """获取所有已使用的股票代码及其详细信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM stock_codes WHERE used = 1 ORDER BY used_at DESC')
+                code_rows = cursor.fetchall()
+                
+                return [dict(code_row) for code_row in code_rows]
+        except sqlite3.Error as e:
+            logger.error(f"Database read error: {str(e)}")
             raise Exception("Database operation failed. Please try again later.")
 
 # 创建全局实例

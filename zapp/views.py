@@ -331,7 +331,7 @@ def noUseCode(request):
 def addTodayCode(request):
     """
     标记股票代码为已使用
-    :param request: HTTP请求对象，包含code参数
+    :param request: HTTP请求对象，必须包含code和codeData参数
     :return: 操作结果的JSON响应
     """
     try:
@@ -344,8 +344,19 @@ def addTodayCode(request):
                 "message": "缺少code参数"
             }, status=400)
         
+        # 校验codeData字段必须存在（即使值为空）
+        if 'codeData' not in request.POST:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少codeData参数"
+            }, status=400)
+        
+        # 获取codeData参数
+        codeData = request.POST.get('codeData', '')
+        
         # 标记代码为已使用
-        success = stock_code_service.mark_code_as_used(code)
+        success = stock_code_service.mark_code_as_used(code, codeData)
         
         if success:
             return JsonResponse({
@@ -364,4 +375,66 @@ def addTodayCode(request):
             "code": 500,
             "data": None,
             "message": f"标记代码为已使用失败：{str(e)}"
+        }, status=500)
+
+@require_GET
+def getCodeInfo(request):
+    """
+    获取指定股票代码的详细信息
+    :param request: HTTP请求对象，包含code参数
+    :return: 代码详细信息的JSON响应
+    """
+    try:
+        # 获取要查询的股票代码
+        code = request.GET.get('code')
+        if not code:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少code参数"
+            }, status=400)
+        
+        # 获取代码信息
+        code_info = stock_code_service.get_code_info(code)
+        
+        if not code_info:
+            return JsonResponse({
+                "code": 404,
+                "data": None,
+                "message": "股票代码不存在"
+            }, status=404)
+        
+        return JsonResponse({
+            "code": 200,
+            "data": code_info,
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取代码信息失败：{str(e)}"
+        }, status=500)
+
+@require_GET
+def getAllUsedCodes(request):
+    """
+    获取所有已使用的股票代码及其详细信息
+    :param request: HTTP请求对象
+    :return: 已使用代码列表的JSON响应
+    """
+    try:
+        # 获取所有已使用的代码
+        used_codes = stock_code_service.get_all_used_codes()
+        
+        return JsonResponse({
+            "code": 200,
+            "data": used_codes,
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取已使用代码失败：{str(e)}"
         }, status=500)
