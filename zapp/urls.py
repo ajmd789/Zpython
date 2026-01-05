@@ -25,4 +25,7 @@ urlpatterns = [
     path('timestamp', views.timestamp, name='timestamp'),
     # 静态文件访问接口
     path('static/<path:file_path>', views.static_file_access, name='static_file_access'),
+    # 股票代码管理API
+    path('api/noUseCode/', views.noUseCode, name='noUseCode'),
+    path('api/addTodayCode/', views.addTodayCode, name='addTodayCode'),
 ]

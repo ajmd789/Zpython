@@ -6,6 +6,7 @@ import time
 import os
 from .services.file_service import get_directory_contents, read_file
 from .services.memo_service import memo_service
+from .services.stock_code_service import stock_code_service
 from .stock_api_utils import StockApiUtils
 from django.views.decorators.http import require_GET, require_POST
 def chat_page(request):
@@ -289,4 +290,78 @@ def pythongetip(request):
             "code": 500,
             "data": None,
             "message": f"IP采集失败：{str(e)}"
+        }, status=500)
+
+
+@require_GET
+def noUseCode(request):
+    """
+    获取一个未使用的股票代码
+    :param request: HTTP请求对象
+    :return: 包含未使用股票代码的JSON响应
+    """
+    try:
+        # 获取未使用的股票代码
+        unused_code = stock_code_service.get_unused_code()
+        
+        if not unused_code:
+            return JsonResponse({
+                "code": 404,
+                "data": None,
+                "message": "没有可用的未使用股票代码"
+            }, status=404)
+        
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "code": unused_code["code"]
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取未使用代码失败：{str(e)}"
+        }, status=500)
+
+
+@csrf_exempt
+@require_POST
+def addTodayCode(request):
+    """
+    标记股票代码为已使用
+    :param request: HTTP请求对象，包含code参数
+    :return: 操作结果的JSON响应
+    """
+    try:
+        # 获取要标记的股票代码
+        code = request.POST.get('code')
+        if not code:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少code参数"
+            }, status=400)
+        
+        # 标记代码为已使用
+        success = stock_code_service.mark_code_as_used(code)
+        
+        if success:
+            return JsonResponse({
+                "code": 200,
+                "data": None,
+                "message": "success"
+            })
+        else:
+            return JsonResponse({
+                "code": 404,
+                "data": None,
+                "message": "股票代码不存在"
+            }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"标记代码为已使用失败：{str(e)}"
         }, status=500)
