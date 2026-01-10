@@ -48,7 +48,6 @@ class StockCodeService:
                         code TEXT NOT NULL UNIQUE,
                         used INTEGER DEFAULT 0,
                         used_at TEXT,
-                        codeData TEXT,
                         created_at TEXT NOT NULL
                     )
                 ''')
@@ -129,12 +128,12 @@ class StockCodeService:
                 with open(code_data_file, 'w', encoding='utf-8') as f:
                     f.write(codeData)
             
-            # 更新数据库状态（codeData字段设为None，因为已存储到文件）
+            # 更新数据库状态（不再更新codeData字段，只更新used和used_at）
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    'UPDATE stock_codes SET used = 1, used_at = ?, codeData = ? WHERE code = ?',
-                    (used_at, None, code)
+                    'UPDATE stock_codes SET used = 1, used_at = ? WHERE code = ?',
+                    (used_at, code)
                 )
                 conn.commit()
                 
@@ -149,11 +148,12 @@ class StockCodeService:
     def reset_code_usage(self):
         """重置所有代码为未使用状态（用于测试或重新开始）"""
         try:
-            # 重置数据库中的状态
+            # 重置数据库中的状态（不再更新codeData字段）
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('UPDATE stock_codes SET used = 0, used_at = NULL, codeData = NULL')
+                cursor.execute('UPDATE stock_codes SET used = 0, used_at = NULL')
                 conn.commit()
+                affected_rows = cursor.rowcount
             
             # 清理data目录中所有的codeData文件
             for filename in os.listdir(self.data_dir):
@@ -166,7 +166,7 @@ class StockCodeService:
                         logger.error(f"Failed to remove file {file_path}: {str(e)}")
                         # 继续清理其他文件，不中断整个过程
             
-            return cursor.rowcount
+            return affected_rows
         except sqlite3.Error as e:
             logger.error(f"Database update error: {str(e)}")
             raise Exception("Database operation failed. Please try again later.")
