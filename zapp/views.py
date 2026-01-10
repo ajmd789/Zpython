@@ -371,9 +371,16 @@ def addTodayCode(request):
                 "message": "股票代码不存在"
             }, status=404)
     except Exception as e:
+        import traceback
+        # 获取完整的异常堆栈信息
+        full_error = traceback.format_exc()
         return JsonResponse({
             "code": 500,
-            "data": None,
+            "data": {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "stack_trace": full_error
+            },
             "message": f"标记代码为已使用失败：{str(e)}"
         }, status=500)
 

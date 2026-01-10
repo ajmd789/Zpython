@@ -141,10 +141,10 @@ class StockCodeService:
                 return cursor.rowcount > 0
         except sqlite3.Error as e:
             logger.error(f"Database update error: {str(e)}")
-            raise Exception("Database operation failed. Please try again later.")
+            raise Exception(f"Database operation failed: {str(e)}")
         except IOError as e:
             logger.error(f"File write error: {str(e)}")
-            raise Exception("Failed to write codeData to file. Please try again later.")
+            raise Exception(f"Failed to write codeData to file: {str(e)}")
     
     def reset_code_usage(self):
         """重置所有代码为未使用状态（用于测试或重新开始）"""
