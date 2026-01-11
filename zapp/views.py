@@ -503,43 +503,59 @@ def download_all_code_data(request):
     from django.http import StreamingHttpResponse
     import zipfile
     import tempfile
+    import os
+    import time
     from datetime import datetime
     import logging
     
     # 获取日志记录器
     logger = logging.getLogger(__name__)
+    start_time = time.time()
     
     try:
+        logger.info(f"Start generating zip file for download_all_code_data")
+        
         # 生成下载文件名，包含当前日期
         current_date = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f'all_stock_codes_{current_date}.zip'
         
-        # 创建临时文件，使用tempfile.NamedTemporaryFile
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip_file:
+        # 创建临时文件，使用指定的临时目录，确保有写入权限
+        temp_dir = tempfile.gettempdir()
+        logger.info(f"Using temp directory: {temp_dir}")
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip', dir=temp_dir) as temp_zip_file:
             temp_zip_path = temp_zip_file.name
         
-        # 创建ZipFile对象，使用临时文件而不是内存缓冲区
-        with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zip_file:
-            # 获取所有已使用的代码信息
-            used_codes = stock_code_service.get_used_codes_from_files()
-            
+        logger.info(f"Created temp zip file: {temp_zip_path}")
+        
+        # 获取所有已使用的代码信息
+        used_codes = stock_code_service.get_used_codes_from_files()
+        logger.info(f"Found {len(used_codes)} used codes")
+        
+        # 创建ZipFile对象，使用临时文件而不是内存缓冲区，使用更快的压缩算法
+        with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_STORED, allowZip64=True) as zip_file:
             # 遍历所有已使用的代码，逐个添加到压缩包
-            for code_info in used_codes:
+            for i, code_info in enumerate(used_codes):
                 code = code_info['code']
                 
                 try:
                     # 直接将文件添加到压缩包，不读取到内存中
                     file_path = os.path.join(stock_code_service.data_dir, f'{code}.txt')
                     zip_file.write(file_path, arcname=f'{code}.txt')
+                    
+                    # 每处理100个文件记录一次日志
+                    if (i + 1) % 100 == 0:
+                        logger.info(f"Processed {i + 1}/{len(used_codes)} files")
                 except Exception as e:
                     logger.error(f"Failed to add {code}.txt to zip: {str(e)}")
                     continue
         
         # 获取临时文件大小
         file_size = os.path.getsize(temp_zip_path)
+        logger.info(f"Generated zip file size: {file_size} bytes")
         
-        # 定义分块读取生成器
-        def file_chunks(file_path, chunk_size=8192):
+        # 定义分块读取生成器，使用更大的chunk size提高传输速度
+        def file_chunks(file_path, chunk_size=65536):  # 64KB chunk size
             with open(file_path, 'rb') as f:
                 while True:
                     chunk = f.read(chunk_size)
@@ -559,6 +575,7 @@ def download_all_code_data(request):
                 if self.temp_file_path and os.path.exists(self.temp_file_path):
                     try:
                         os.remove(self.temp_file_path)
+                        logger.info(f"Cleaned up temp file: {self.temp_file_path}")
                     except Exception as e:
                         logger.error(f"Failed to delete temp file {self.temp_file_path}: {str(e)}")
         
@@ -572,19 +589,31 @@ def download_all_code_data(request):
         # 设置HTTP头，允许浏览器下载文件
         response['Content-Disposition'] = f'attachment; filename={filename}'
         response['Content-Length'] = file_size
+        response['X-File-Count'] = str(len(used_codes))
+        response['X-File-Size'] = str(file_size)
+        
+        # 添加超时头，防止代理服务器过早关闭连接
+        response['X-Accel-Buffering'] = 'no'  # 禁用Nginx缓冲
+        
+        logger.info(f"Generated response in {time.time() - start_time:.2f} seconds")
         
         return response
     except Exception as e:
-        logger.error(f"Failed to create zip file: {str(e)}")
+        logger.exception(f"Failed to create zip file: {str(e)}")
         # 清理临时文件
         if 'temp_zip_path' in locals() and os.path.exists(temp_zip_path):
             try:
                 os.remove(temp_zip_path)
+                logger.info(f"Cleaned up temp file after error: {temp_zip_path}")
             except Exception:
                 pass
         return JsonResponse({
             "code": 500,
-            "data": None,
+            "data": {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "processing_time": time.time() - start_time
+            },
             "message": f"生成压缩文件失败：{str(e)}"
         }, status=500)
 
