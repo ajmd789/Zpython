@@ -496,70 +496,97 @@ def download_code_data(request):
 @require_GET
 def download_all_code_data(request):
     """
-    全量下载所有已使用的股票代码数据，采用流式压缩，最小化内存占用
+    全量下载所有已使用的股票代码数据，采用临时文件和流式传输，最小化内存占用
     :param request: HTTP请求对象
     :return: 压缩后的股票数据文件的流式HTTP响应
     """
     from django.http import StreamingHttpResponse
     import zipfile
-    import io
+    import tempfile
     from datetime import datetime
+    import logging
     
-    def zip_generator():
-        # 创建一个BytesIO缓冲区
-        zip_buffer = io.BytesIO()
+    # 获取日志记录器
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # 生成下载文件名，包含当前日期
+        current_date = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'all_stock_codes_{current_date}.zip'
         
-        try:
-            # 创建ZipFile对象，使用w模式和DEFLATED压缩算法
-            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zip_file:
-                # 获取所有已使用的代码信息
-                used_codes = stock_code_service.get_used_codes_from_files()
-                
-                # 遍历所有已使用的代码，逐个添加到压缩包
-                for code_info in used_codes:
-                    code = code_info['code']
-                    
-                    try:
-                        # 读取文件内容，使用with语句确保文件正确关闭
-                        with open(os.path.join(stock_code_service.data_dir, f'{code}.txt'), 'r', encoding='utf-8') as f:
-                            # 添加文件到压缩包，使用生成器逐行读取，减少内存占用
-                            zip_file.writestr(f'{code}.txt', f.read())
-                    except Exception as e:
-                        logger.error(f"Failed to add {code}.txt to zip: {str(e)}")
-                        continue
-                    
-                    # 每处理100个文件，将缓冲区内容发送给客户端
-                    if len(zip_file.filelist) % 100 == 0:
-                        # 将缓冲区指针重置到开头
-                        zip_buffer.seek(0)
-                        # 读取并返回缓冲区内容
-                        yield zip_buffer.read()
-                        # 清空缓冲区
-                        zip_buffer.truncate(0)
-                        # 将缓冲区指针重置到开头
-                        zip_buffer.seek(0)
+        # 创建临时文件，使用tempfile.NamedTemporaryFile
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip_file:
+            temp_zip_path = temp_zip_file.name
+        
+        # 创建ZipFile对象，使用临时文件而不是内存缓冲区
+        with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zip_file:
+            # 获取所有已使用的代码信息
+            used_codes = stock_code_service.get_used_codes_from_files()
             
-            # 发送剩余的缓冲区内容
-            zip_buffer.seek(0)
-            yield zip_buffer.read()
-        except Exception as e:
-            logger.error(f"Failed to create zip file: {str(e)}")
-            yield b''
-        finally:
-            # 关闭缓冲区
-            zip_buffer.close()
-    
-    # 生成下载文件名，包含当前日期
-    current_date = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'all_stock_codes_{current_date}.zip'
-    
-    # 创建StreamingHttpResponse对象，使用zip_generator作为生成器
-    response = StreamingHttpResponse(zip_generator(), content_type='application/zip')
-    
-    # 设置HTTP头，允许浏览器下载文件
-    response['Content-Disposition'] = f'attachment; filename={filename}'
-    
-    return response
+            # 遍历所有已使用的代码，逐个添加到压缩包
+            for code_info in used_codes:
+                code = code_info['code']
+                
+                try:
+                    # 直接将文件添加到压缩包，不读取到内存中
+                    file_path = os.path.join(stock_code_service.data_dir, f'{code}.txt')
+                    zip_file.write(file_path, arcname=f'{code}.txt')
+                except Exception as e:
+                    logger.error(f"Failed to add {code}.txt to zip: {str(e)}")
+                    continue
+        
+        # 获取临时文件大小
+        file_size = os.path.getsize(temp_zip_path)
+        
+        # 定义分块读取生成器
+        def file_chunks(file_path, chunk_size=8192):
+            with open(file_path, 'rb') as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+        
+        # 创建一个自定义的StreamingHttpResponse子类，用于清理临时文件
+        class CleanupStreamingHttpResponse(StreamingHttpResponse):
+            def __init__(self, *args, temp_file_path=None, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.temp_file_path = temp_file_path
+            
+            def close(self):
+                super().close()
+                # 清理临时文件
+                if self.temp_file_path and os.path.exists(self.temp_file_path):
+                    try:
+                        os.remove(self.temp_file_path)
+                    except Exception as e:
+                        logger.error(f"Failed to delete temp file {self.temp_file_path}: {str(e)}")
+        
+        # 创建自定义StreamingHttpResponse对象，使用生成器进行流式传输
+        response = CleanupStreamingHttpResponse(
+            file_chunks(temp_zip_path), 
+            content_type='application/zip',
+            temp_file_path=temp_zip_path
+        )
+        
+        # 设置HTTP头，允许浏览器下载文件
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        response['Content-Length'] = file_size
+        
+        return response
+    except Exception as e:
+        logger.error(f"Failed to create zip file: {str(e)}")
+        # 清理临时文件
+        if 'temp_zip_path' in locals() and os.path.exists(temp_zip_path):
+            try:
+                os.remove(temp_zip_path)
+            except Exception:
+                pass
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"生成压缩文件失败：{str(e)}"
+        }, status=500)
 
 @require_GET
 def getUsedCodeList(request):
