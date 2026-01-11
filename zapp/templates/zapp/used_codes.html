@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>USED_CODES.EXE - Used Stock Codes Manager v1.0</title>
+  <style>
+    /* Windows 95 retro style with system fonts and classic borders */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #008080;
+      color: #000;
+      padding: 20px;
+      line-height: 1.4;
+    }
+
+    .window {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #fff #000 #000 #fff;
+      box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+    }
+
+    .title-bar {
+      background: linear-gradient(90deg, #000080, #1084d0);
+      color: #fff;
+      padding: 4px 6px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .title-bar-text {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .title-bar-controls {
+      display: flex;
+      gap: 2px;
+    }
+
+    .title-bar-btn {
+      width: 18px;
+      height: 16px;
+      background: #c0c0c0;
+      border: 1px solid;
+      border-color: #fff #000 #000 #fff;
+      font-size: 12px;
+      line-height: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .title-bar-btn:active {
+      border-color: #000 #fff #fff #000;
+    }
+
+    .window-body {
+      padding: 16px;
+    }
+
+    .status-bar {
+      border-top: 1px solid;
+      border-color: #fff #000 #000 #fff;
+      padding: 4px 8px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .field {
+      border: 2px solid;
+      border-color: #000 #fff #fff #000;
+      background: #fff;
+      padding: 8px;
+      margin-bottom: 12px;
+    }
+
+    button {
+      background: #c0c0c0;
+      border: 2px solid;
+      border-color: #fff #000 #000 #fff;
+      padding: 6px 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      min-width: 80px;
+      font-weight: bold;
+    }
+
+    button:active {
+      border-color: #000 #fff #fff #000;
+      padding: 7px 15px 5px 17px;
+    }
+
+    button:disabled {
+      color: #808080;
+      text-shadow: 1px 1px #fff;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      font-size: 13px;
+    }
+
+    th, td {
+      border: 1px solid #000;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background: #c0c0c0;
+      font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+      background: #f0f0f0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #808080;
+      border: 1px dashed #808080;
+      background: #fff;
+    }
+
+    .ascii-art {
+      font-size: 10px;
+      line-height: 1;
+      color: #000;
+      margin-bottom: 8px;
+      white-space: pre;
+    }
+
+    h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .status-desc {
+      background: #fff;
+      border: 1px solid #000;
+      padding: 8px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #000080;
+    }
+
+    .total-count {
+      background: #fff;
+      border: 1px solid #000;
+      padding: 8px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 10px;
+      }
+      .window-body {
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="window">
+    <!-- Windows 95 style title bar -->
+    <div class="title-bar">
+      <div class="title-bar-text">
+        <span>⚡</span>
+        <span>USED_CODES.EXE - Used Stock Codes Manager v1.0</span>
+      </div>
+      <div class="title-bar-controls">
+        <button class="title-bar-btn">_</button>
+        <button class="title-bar-btn">□</button>
+        <button class="title-bar-btn">×</button>
+      </div>
+    </div>
+
+    <div class="window-body">
+      <!-- ASCII art header for retro aesthetic -->
+      <div class="ascii-art">
+ __  __ _____  ____  _   _ ____  
+|  \/  | ____|/ ___|| | | |  _ \ 
+| |\/| |  _|  \___ \| |_| | |_) |
+| |  | | |___  ___) |  _  |  __/ 
+|_|  |_|_____|____/|_| |_|_|    
+                                  
+      </div>
+
+      <div class="field">
+        <h2>[USED CODES MANAGER]</h2>
+        <div class="btn-group">
+          <button onclick="getUsedCodes()">QUERY</button>
+          <button onclick="clearResults()">CLEAR</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <h2>[TOTAL COUNT]</h2>
+        <div id="totalCount" class="total-count">
+          Total Used Codes: 0
+        </div>
+      </div>
+
+      <div class="field">
+        <h2>[STATUS DESCRIPTION]</h2>
+        <div id="statusDesc" class="status-desc">
+          Click QUERY to fetch used codes
+        </div>
+      </div>
+
+      <div class="field">
+        <h2>[USED CODES LIST]</h2>
+        <table id="codesTable" class="hidden">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Stock Code</th>
+              <th>Operation</th>
+            </tr>
+          </thead>
+          <tbody id="codesTableBody">
+            <!-- Code list will be rendered here -->
+          </tbody>
+        </table>
+        <div id="emptyState" class="empty-state">
+          <div class="ascii-art">
+  _____ __  __ ____ _______   __
+ | ____|  \/  |  _ \_   _\ \ / /
+ |  _| | |\/| | |_) || |  \ V / 
+ | |___| |  | |  __/ | |   | |  
+ |_____|_|  |_|_|    |_|   |_|  
+          </div>
+          <p>NO USED CODES FOUND</p>
+          <p>Press QUERY to fetch used codes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Windows 95 style status bar -->
+    <div class="status-bar">
+      <span id="status">Ready</span>
+      <span id="lastUpdate">Last Update: Never</span>
+    </div>
+  </div>
+
+  <script>
+    // 获取URL参数
+    function getUrlParameter(name) {
+      name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+      const regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+      const results = regex.exec(location.search);
+      return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+    }
+
+    // 检查是否显示下载按钮
+    const password = getUrlParameter('password');
+    const showDownloadButton = password === 'zsy';
+
+    // API - 真实后端接口
+    const api = {
+      // 获取已使用的股票代码列表
+      async getUsedCodes() {
+        const response = await fetch('/apipy/api/getUsedCodeList/');
+        const data = await response.json();
+        if (data.code !== 200) {
+          throw new Error(data.message);
+        }
+        return data.data;
+      }
+    };
+
+    function renderCodes(data) {
+      const codesTable = document.getElementById('codesTable');
+      const codesTableBody = document.getElementById('codesTableBody');
+      const emptyState = document.getElementById('emptyState');
+      const totalCountElement = document.getElementById('totalCount');
+      const statusDescElement = document.getElementById('statusDesc');
+      const lastUpdateElement = document.getElementById('lastUpdate');
+      
+      // 更新总数量
+      totalCountElement.textContent = `Total Used Codes: ${data.totalCount}`;
+      
+      // 更新状态描述
+      statusDescElement.textContent = data.statusDesc;
+      
+      if (data.list.length === 0) {
+        codesTable.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      codesTable.classList.remove('hidden');
+
+      // 渲染表格头部，根据showDownloadButton决定是否显示操作列
+      const tableHeader = codesTable.querySelector('thead tr');
+      if (showDownloadButton) {
+        tableHeader.innerHTML = `
+          <th>#</th>
+          <th>Stock Code</th>
+          <th>Operation</th>
+        `;
+      } else {
+        tableHeader.innerHTML = `
+          <th>#</th>
+          <th>Stock Code</th>
+        `;
+      }
+
+      // 渲染代码列表，根据showDownloadButton决定是否显示下载按钮
+      codesTableBody.innerHTML = data.list.map((code, index) => {
+        if (showDownloadButton) {
+          return `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${code}</td>
+              <td>
+                <button onclick="downloadCode('${code}')" style="min-width: 60px; padding: 4px 8px; font-size: 11px;">DOWNLOAD</button>
+              </td>
+            </tr>
+          `;
+        } else {
+          return `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${code}</td>
+            </tr>
+          `;
+        }
+      }).join('');
+      
+      // 更新最后更新时间
+      const now = new Date();
+      lastUpdateElement.textContent = `Last Update: ${now.toLocaleString()}`;
+    }
+
+    async function downloadCode(code) {
+      const statusElement = document.getElementById('status');
+      
+      try {
+        statusElement.textContent = `Downloading ${code}...`;
+        
+        // 创建一个临时的下载链接
+        const downloadLink = document.createElement('a');
+        downloadLink.href = `/apipy/api/downloadCodeData/?code=${encodeURIComponent(code)}`;
+        downloadLink.download = `${code}.txt`;
+        
+        // 触发下载
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        statusElement.textContent = 'Ready';
+      } catch (error) {
+        console.error('下载失败:', error);
+        statusElement.textContent = 'Error!';
+        alert(`ERROR: Failed to download data for ${code}!`);
+      }
+    }
+
+    function clearResults() {
+      const codesTable = document.getElementById('codesTable');
+      const emptyState = document.getElementById('emptyState');
+      const totalCountElement = document.getElementById('totalCount');
+      const statusDescElement = document.getElementById('statusDesc');
+      const lastUpdateElement = document.getElementById('lastUpdate');
+      const statusElement = document.getElementById('status');
+      
+      codesTable.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      totalCountElement.textContent = 'Total Used Codes: 0';
+      statusDescElement.textContent = 'Click QUERY to fetch used codes';
+      lastUpdateElement.textContent = 'Last Update: Never';
+      statusElement.textContent = 'Ready';
+    }
+
+    async function getUsedCodes() {
+      const statusElement = document.getElementById('status');
+      
+      try {
+        statusElement.textContent = 'Loading...';
+        const data = await api.getUsedCodes();
+        renderCodes(data);
+        statusElement.textContent = 'Ready';
+      } catch (error) {
+        console.error('获取失败:', error);
+        statusElement.textContent = 'Error!';
+        alert('ERROR: Failed to fetch used codes!');
+      }
+    }
+
+    // 页面加载时自动获取一次数据
+    (function init() {
+      getUsedCodes();
+    })();
+  </script>
+</body>
+</html>

@@ -239,6 +239,54 @@ class StockCodeService:
         except sqlite3.Error as e:
             logger.error(f"Database read error: {str(e)}")
             raise Exception("Database operation failed. Please try again later.")
+    
+    def get_used_codes_from_files(self):
+        """直接从data文件夹获取已使用的股票代码信息，包括文件数量和大小"""
+        try:
+            # 获取data文件夹中的所有.txt文件
+            used_codes = []
+            if os.path.exists(self.data_dir):
+                for filename in os.listdir(self.data_dir):
+                    if filename.endswith('.txt'):
+                        # 提取股票代码（去除.txt后缀）
+                        code = filename[:-4]
+                        # 获取文件大小
+                        file_path = os.path.join(self.data_dir, filename)
+                        file_size = os.path.getsize(file_path)
+                        used_codes.append({
+                            'code': code,
+                            'file_size': file_size
+                        })
+            
+            return used_codes
+        except IOError as e:
+            logger.error(f"Failed to read data directory: {str(e)}")
+            raise Exception(f"Failed to read data directory: {str(e)}")
+    
+    def get_used_code_count_from_db(self):
+        """从数据库获取已使用的股票代码数量"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT COUNT(*) FROM stock_codes WHERE used = 1')
+                count = cursor.fetchone()[0]
+                return count
+        except sqlite3.Error as e:
+            logger.error(f"Database read error: {str(e)}")
+            raise Exception("Database operation failed. Please try again later.")
+    
+    def get_code_data(self, code):
+        """获取指定股票代码的数据内容"""
+        try:
+            file_path = os.path.join(self.data_dir, f'{code}.txt')
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Data file for code {code} not found")
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except IOError as e:
+            logger.error(f"Failed to read code data: {str(e)}")
+            raise Exception(f"Failed to read code data: {str(e)}")
 
 # 创建全局实例
 stock_code_service = StockCodeService()

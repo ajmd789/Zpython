@@ -445,3 +445,92 @@ def getAllUsedCodes(request):
             "data": None,
             "message": f"获取已使用代码失败：{str(e)}"
         }, status=500)
+
+def used_codes_page(request):
+    """
+    渲染已使用股票代码列表页面
+    :param request: HTTP请求对象
+    :return: 已使用股票代码列表页面的HTML响应
+    """
+    return render(request, 'zapp/used_codes.html')
+
+@require_GET
+def download_code_data(request):
+    """
+    下载指定股票代码的数据
+    :param request: HTTP请求对象，包含code参数
+    :return: 股票数据文件的HTTP响应
+    """
+    try:
+        # 获取股票代码
+        code = request.GET.get('code')
+        if not code:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少code参数"
+            }, status=400)
+        
+        # 获取股票数据
+        code_data = stock_code_service.get_code_data(code)
+        
+        # 设置HTTP头，允许浏览器下载文件
+        response = HttpResponse(code_data, content_type='text/plain; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename={code}.txt'
+        response['Content-Length'] = len(code_data.encode('utf-8'))
+        
+        return response
+    except FileNotFoundError as e:
+        return JsonResponse({
+            "code": 404,
+            "data": None,
+            "message": f"股票数据文件不存在：{str(e)}"
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"下载股票数据失败：{str(e)}"
+        }, status=500)
+
+@require_GET
+def getUsedCodeList(request):
+    """
+    获取已使用的股票代码列表，返回totalCount和代码列表
+    直接从data文件夹读取，确保数据真实可靠
+    :param request: HTTP请求对象
+    :return: 包含totalCount和代码列表的JSON响应
+    """
+    try:
+        # 直接从文件系统获取已使用的代码信息
+        used_codes_from_files = stock_code_service.get_used_codes_from_files()
+        
+        # 提取代码列表
+        code_list = [code_info['code'] for code_info in used_codes_from_files]
+        total_count = len(code_list)
+        
+        # 从数据库获取已使用的代码数量，用于比较
+        db_used_count = stock_code_service.get_used_code_count_from_db()
+        file_used_count = total_count
+        
+        # 描述数据库和文件系统之间的差异
+        if db_used_count == file_used_count:
+            status_desc = f"数据库记录与实际文件数量一致，均为{db_used_count}个"
+        else:
+            status_desc = f"数据库记录({db_used_count}个)与实际文件数量({file_used_count}个)不一致，以实际文件为准"
+        
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "totalCount": total_count,
+                "list": code_list,
+                "statusDesc": status_desc
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取已使用代码列表失败：{str(e)}"
+        }, status=500)

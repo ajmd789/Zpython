@@ -30,4 +30,7 @@ urlpatterns = [
     path('api/addTodayCode/', views.addTodayCode, name='addTodayCode'),
     path('api/getCodeInfo/', views.getCodeInfo, name='getCodeInfo'),
     path('api/getAllUsedCodes/', views.getAllUsedCodes, name='getAllUsedCodes'),
+    path('api/getUsedCodeList/', views.getUsedCodeList, name='getUsedCodeList'),
+    path('api/downloadCodeData/', views.download_code_data, name='download_code_data'),
+    path('usedcodes', views.used_codes_page, name='used_codes_page'),
 ]
