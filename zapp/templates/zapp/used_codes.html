@@ -226,6 +226,7 @@
         <div class="btn-group">
           <button onclick="getUsedCodes()">QUERY</button>
           <button onclick="clearResults()">CLEAR</button>
+          <button onclick="downloadAllCodes()" style="background-color: #0066cc; color: white;">DOWNLOAD ALL</button>
         </div>
       </div>
 
@@ -390,6 +391,30 @@
         console.error('下载失败:', error);
         statusElement.textContent = 'Error!';
         alert(`ERROR: Failed to download data for ${code}!`);
+      }
+    }
+
+    async function downloadAllCodes() {
+      const statusElement = document.getElementById('status');
+      
+      try {
+        statusElement.textContent = 'Downloading all codes... This may take a while.';
+        
+        // 创建一个临时的下载链接
+        const downloadLink = document.createElement('a');
+        downloadLink.href = `/apipy/api/downloadAllCodeData/`;
+        downloadLink.download = `all_stock_codes.zip`;
+        
+        // 触发下载
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        statusElement.textContent = 'Ready';
+      } catch (error) {
+        console.error('全量下载失败:', error);
+        statusElement.textContent = 'Error!';
+        alert(`ERROR: Failed to download all codes!`);
       }
     }
 

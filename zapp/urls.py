@@ -32,5 +32,6 @@ urlpatterns = [
     path('api/getAllUsedCodes/', views.getAllUsedCodes, name='getAllUsedCodes'),
     path('api/getUsedCodeList/', views.getUsedCodeList, name='getUsedCodeList'),
     path('api/downloadCodeData/', views.download_code_data, name='download_code_data'),
+    path('api/downloadAllCodeData/', views.download_all_code_data, name='download_all_code_data'),
     path('usedcodes', views.used_codes_page, name='used_codes_page'),
 ]

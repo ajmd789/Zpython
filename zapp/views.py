@@ -494,6 +494,74 @@ def download_code_data(request):
         }, status=500)
 
 @require_GET
+def download_all_code_data(request):
+    """
+    全量下载所有已使用的股票代码数据，采用流式压缩，最小化内存占用
+    :param request: HTTP请求对象
+    :return: 压缩后的股票数据文件的流式HTTP响应
+    """
+    from django.http import StreamingHttpResponse
+    import zipfile
+    import io
+    from datetime import datetime
+    
+    def zip_generator():
+        # 创建一个BytesIO缓冲区
+        zip_buffer = io.BytesIO()
+        
+        try:
+            # 创建ZipFile对象，使用w模式和DEFLATED压缩算法
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zip_file:
+                # 获取所有已使用的代码信息
+                used_codes = stock_code_service.get_used_codes_from_files()
+                
+                # 遍历所有已使用的代码，逐个添加到压缩包
+                for code_info in used_codes:
+                    code = code_info['code']
+                    
+                    try:
+                        # 读取文件内容，使用with语句确保文件正确关闭
+                        with open(os.path.join(stock_code_service.data_dir, f'{code}.txt'), 'r', encoding='utf-8') as f:
+                            # 添加文件到压缩包，使用生成器逐行读取，减少内存占用
+                            zip_file.writestr(f'{code}.txt', f.read())
+                    except Exception as e:
+                        logger.error(f"Failed to add {code}.txt to zip: {str(e)}")
+                        continue
+                    
+                    # 每处理100个文件，将缓冲区内容发送给客户端
+                    if len(zip_file.filelist) % 100 == 0:
+                        # 将缓冲区指针重置到开头
+                        zip_buffer.seek(0)
+                        # 读取并返回缓冲区内容
+                        yield zip_buffer.read()
+                        # 清空缓冲区
+                        zip_buffer.truncate(0)
+                        # 将缓冲区指针重置到开头
+                        zip_buffer.seek(0)
+            
+            # 发送剩余的缓冲区内容
+            zip_buffer.seek(0)
+            yield zip_buffer.read()
+        except Exception as e:
+            logger.error(f"Failed to create zip file: {str(e)}")
+            yield b''
+        finally:
+            # 关闭缓冲区
+            zip_buffer.close()
+    
+    # 生成下载文件名，包含当前日期
+    current_date = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'all_stock_codes_{current_date}.zip'
+    
+    # 创建StreamingHttpResponse对象，使用zip_generator作为生成器
+    response = StreamingHttpResponse(zip_generator(), content_type='application/zip')
+    
+    # 设置HTTP头，允许浏览器下载文件
+    response['Content-Disposition'] = f'attachment; filename={filename}'
+    
+    return response
+
+@require_GET
 def getUsedCodeList(request):
     """
     获取已使用的股票代码列表，返回totalCount和代码列表
