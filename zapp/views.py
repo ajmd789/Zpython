@@ -658,3 +658,53 @@ def getUsedCodeList(request):
             "data": None,
             "message": f"获取已使用代码列表失败：{str(e)}"
         }, status=500)
+
+
+@csrf_exempt
+@require_POST
+def clear_all_code_data(request):
+    """
+    移除data目录下的所有文件，并重置数据库中股票代码的使用状态
+    :param request: HTTP请求对象
+    :return: 操作结果的JSON响应
+    """
+    try:
+        # 获取清理前的文件数量
+        used_codes_before = stock_code_service.get_used_codes_from_files()
+        files_count_before = len(used_codes_before)
+        
+        # 从数据库获取清理前的已使用代码数量
+        db_used_count_before = stock_code_service.get_used_code_count_from_db()
+        
+        # 执行清理操作
+        affected_rows = stock_code_service.reset_code_usage()
+        
+        # 获取清理后的文件数量
+        used_codes_after = stock_code_service.get_used_codes_from_files()
+        files_count_after = len(used_codes_after)
+        
+        # 从数据库获取清理后的已使用代码数量
+        db_used_count_after = stock_code_service.get_used_code_count_from_db()
+        
+        # 计算清理的文件数量
+        deleted_files_count = files_count_before - files_count_after
+        
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "deletedFilesCount": deleted_files_count,
+                "affectedRows": affected_rows,
+                "dbUsedCountBefore": db_used_count_before,
+                "dbUsedCountAfter": db_used_count_after,
+                "filesCountBefore": files_count_before,
+                "filesCountAfter": files_count_after,
+                "status": "success"
+            },
+            "message": f"成功清理了{deleted_files_count}个文件，重置了{affected_rows}条数据库记录"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"清理数据失败：{str(e)}"
+        }, status=500)

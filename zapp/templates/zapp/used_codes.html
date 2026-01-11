@@ -227,6 +227,7 @@
           <button onclick="getUsedCodes()">QUERY</button>
           <button onclick="clearResults()">CLEAR</button>
           <button onclick="downloadAllCodes()" style="background-color: #0066cc; color: white;">DOWNLOAD ALL</button>
+          <button onclick="resetAllCodes()" style="background-color: #cc0000; color: white;">重置</button>
         </div>
       </div>
 
@@ -297,6 +298,20 @@
       // 获取已使用的股票代码列表
       async getUsedCodes() {
         const response = await fetch('/apipy/api/getUsedCodeList/');
+        const data = await response.json();
+        if (data.code !== 200) {
+          throw new Error(data.message);
+        }
+        return data.data;
+      },
+      // 重置所有已使用的股票代码
+      async clearAllCodes() {
+        const response = await fetch('/apipy/api/clearAllCodeData/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
         const data = await response.json();
         if (data.code !== 200) {
           throw new Error(data.message);
@@ -415,6 +430,36 @@
         console.error('全量下载失败:', error);
         statusElement.textContent = 'Error!';
         alert(`ERROR: Failed to download all codes!`);
+      }
+    }
+
+    async function resetAllCodes() {
+      const statusElement = document.getElementById('status');
+      
+      // 显示确认对话框
+      const confirmReset = confirm('警告：此操作将重置所有使用过的股票代码，删除所有数据文件，并将所有代码标记为未使用状态。\n\n此操作不可撤销，确定要继续吗？');
+      
+      if (!confirmReset) {
+        return;
+      }
+      
+      try {
+        statusElement.textContent = 'Resetting all codes... This may take a while.';
+        
+        // 调用API重置所有代码
+        const data = await api.clearAllCodes();
+        
+        // 更新状态和结果
+        alert(`成功重置：\n- 删除了 ${data.deletedFilesCount} 个文件\n- 重置了 ${data.affectedRows} 条数据库记录\n- 数据库中已使用代码数量：${data.dbUsedCountAfter}\n- 文件数量：${data.filesCountAfter}`);
+        
+        // 重新获取数据以更新界面
+        await getUsedCodes();
+        
+        statusElement.textContent = 'Ready';
+      } catch (error) {
+        console.error('重置失败:', error);
+        statusElement.textContent = 'Error!';
+        alert(`ERROR: Failed to reset all codes!\n${error.message}`);
       }
     }
 
