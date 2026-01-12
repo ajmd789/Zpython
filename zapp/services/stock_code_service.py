@@ -10,10 +10,11 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 # 数据库路径，与memo_service共享同一个数据库
-if os.name == 'nt':
-    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
-else:
-    DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+DB_PATH = None
+
+# 使用固定的数据库路径
+DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+logger.info(f"Using fixed database path: {DB_PATH}")
 
 class StockCodeService:
     def __init__(self):
@@ -97,13 +98,16 @@ class StockCodeService:
             # 初始化失败不影响服务运行，仅记录日志
     
     def get_unused_code(self):
-        """获取一个未使用的股票代码"""
+        """
+        获取一个未使用的股票代码，使用随机排序确保随机性
+        """
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
-                # 获取第一个未使用的代码
-                cursor.execute('SELECT * FROM stock_codes WHERE used = 0 LIMIT 1')
+                
+                # 随机获取一个未使用的代码，不标记为已使用
+                cursor.execute('SELECT * FROM stock_codes WHERE used = 0 ORDER BY RANDOM() LIMIT 1')
                 code_row = cursor.fetchone()
                 
                 if not code_row:
@@ -129,10 +133,11 @@ class StockCodeService:
                     f.write(codeData)
             
             # 更新数据库状态（不再更新codeData字段，只更新used和used_at）
+            # 添加AND used = 0条件，确保只有未使用的代码才能被标记为已使用
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    'UPDATE stock_codes SET used = 1, used_at = ? WHERE code = ?',
+                    'UPDATE stock_codes SET used = 1, used_at = ? WHERE code = ? AND used = 0',
                     (used_at, code)
                 )
                 conn.commit()
