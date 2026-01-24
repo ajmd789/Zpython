@@ -35,4 +35,7 @@ urlpatterns = [
     path('api/downloadAllCodeData/', views.download_all_code_data, name='download_all_code_data'),
     path('api/clearAllCodeData/', views.clear_all_code_data, name='clear_all_code_data'),
     path('usedcodes', views.used_codes_page, name='used_codes_page'),
+    # WebRTC语音房间相关路由
+    path('voice-room', views.voice_room, name='voice_room'),
+    path('api/room/', views.room_api, name='room_api'),
 ]

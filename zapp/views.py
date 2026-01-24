@@ -454,6 +454,17 @@ def used_codes_page(request):
     """
     return render(request, 'zapp/used_codes.html')
 
+# WebRTC语音房间相关 - 从webrtc_service导入
+from .webrtc_service import room_api
+
+def voice_room(request):
+    """
+    渲染语音房间页面
+    :param request: HTTP请求对象
+    :return: 语音房间页面的HTML响应
+    """
+    return render(request, 'zapp/voice_room.html')
+
 @require_GET
 def download_code_data(request):
     """
