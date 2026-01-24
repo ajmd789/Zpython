@@ -932,12 +932,21 @@
 
             analyser.getByteFrequencyData(dataArray);
             const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+            const wasSpeaking = isSpeaking;
             isSpeaking = average > 20;
 
             if (mySlotIndex !== null) {
                 const slotElement = document.getElementById(`slot-${mySlotIndex}`);
                 if (isSpeaking) {
                     slotElement.classList.add('speaking');
+                    // 如果用户开始说话，通知服务器更新last_spoke时间
+                    if (!wasSpeaking && userId) {
+                        fetch('/apipy/api/room/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'update-spoke-time', user_id: userId })
+                        }).catch(err => console.error('更新说话时间失败:', err));
+                    }
                 } else {
                     slotElement.classList.remove('speaking');
                 }

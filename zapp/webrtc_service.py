@@ -47,23 +47,33 @@ class WebRTCRoomManager:
     def join_room(self, room_id, user_id):
         """用户加入房间"""
         with self.lock:
-            room = self.rooms.get(room_id)
-            if not room:
-                return False, -1, "Room not found"
+            # 如果房间不存在，先创建房间
+            if room_id not in self.rooms:
+                self.rooms[room_id] = {
+                    'slots': [None, None],
+                    'created_at': time.time(),
+                    'max_capacity': 2
+                }
+                logger.info(f"Created default room {room_id} with capacity 2")
+            
+            room = self.rooms[room_id]
             
             # 检查用户是否已经在房间中
             for i, slot in enumerate(room['slots']):
                 if slot and slot['user_id'] == user_id:
                     logger.info(f"User {user_id} already in room {room_id} at slot {i}")
+                    # 更新用户活动时间
+                    slot['last_active'] = time.time()
                     return True, i, "User already in room"
             
-            # 找到空闲槽位
+            # 找到空闲槽位，按顺序分配（先分配0号槽位，再分配1号槽位）
             for i, slot in enumerate(room['slots']):
                 if slot is None:
                     room['slots'][i] = {
                         'user_id': user_id,
                         'joined_at': time.time(),
                         'last_active': time.time(),
+                        'last_spoke': time.time(),  # 添加最后说话时间
                         'ice_candidates': [],
                         'offer': None,
                         'answer': None
@@ -163,15 +173,37 @@ class WebRTCRoomManager:
             
             return False, "User not in room"
     
+    def update_spoke_time(self, room_id, user_id):
+        """更新用户最后说话时间"""
+        with self.lock:
+            room = self.rooms.get(room_id)
+            if not room:
+                return False, "Room not found"
+            
+            for i, slot in enumerate(room['slots']):
+                if slot and slot['user_id'] == user_id:
+                    slot['last_spoke'] = time.time()
+                    slot['last_active'] = time.time()  # 同时更新活动时间
+                    logger.debug(f"Updated spoke time for user {user_id} in room {room_id}")
+                    return True, "success"
+            
+            return False, "User not in room"
+    
     def cleanup_inactive_users(self):
-        """清理不活跃的用户"""
+        """清理不活跃的用户和30秒不说话的用户"""
         with self.lock:
             current_time = time.time()
             for room_id, room in list(self.rooms.items()):
                 for i, slot in enumerate(room['slots']):
-                    if slot and current_time - slot['last_active'] > self.heartbeat_timeout:
-                        logger.info(f"Removed inactive user {slot['user_id']} from room {room_id}")
-                        room['slots'][i] = None
+                    if slot:
+                        # 检查30秒不说话的用户
+                        if current_time - slot['last_spoke'] > 30:
+                            logger.info(f"Removed silent user {slot['user_id']} from room {room_id} (30s without speaking)")
+                            room['slots'][i] = None
+                        # 检查心跳超时的用户
+                        elif current_time - slot['last_active'] > self.heartbeat_timeout:
+                            logger.info(f"Removed inactive user {slot['user_id']} from room {room_id}")
+                            room['slots'][i] = None
                 
                 # 检查房间是否为空，如果为空则删除
                 if all(slot is None for slot in room['slots']):
@@ -180,6 +212,21 @@ class WebRTCRoomManager:
 
 # 创建全局实例
 webrtc_manager = WebRTCRoomManager()
+
+# 启动后台线程，定期清理不活跃用户和30秒不说话的用户
+def start_cleanup_thread():
+    import threading
+    def cleanup_loop():
+        while True:
+            webrtc_manager.cleanup_inactive_users()
+            time.sleep(5)  # 每5秒检查一次
+    
+    thread = threading.Thread(target=cleanup_loop, daemon=True)
+    thread.start()
+    logger.info("Started cleanup thread for inactive and silent users")
+
+# 启动清理线程
+start_cleanup_thread()
 
 @csrf_exempt
 def room_api(request):
@@ -394,6 +441,30 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.clear_ice_candidates(room_id, user_id)
+                room = webrtc_manager.get_room(room_id)
+                
+                return JsonResponse({
+                    'code': 200 if success else 404,
+                    'data': {
+                        'success': success,
+                        'room': room
+                    },
+                    'message': message
+                })
+            
+            elif action == 'update-spoke-time':
+                # 更新用户最后说话时间
+                room_id = body.get('room_id', 'main-room')
+                user_id = body.get('user_id')
+                
+                if not user_id:
+                    return JsonResponse({
+                        'code': 400,
+                        'data': None,
+                        'message': 'Missing user_id'
+                    }, status=400)
+                
+                success, message = webrtc_manager.update_spoke_time(room_id, user_id)
                 room = webrtc_manager.get_room(room_id)
                 
                 return JsonResponse({
