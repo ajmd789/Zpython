@@ -309,6 +309,19 @@ echo "监听地址: {GUNICORN_BIND}"
 echo "超时时间: {GUNICORN_TIMEOUT}秒"
 echo ""
 
+# 尝试停止旧服务
+if [ -f "$SCRIPT_DIR/stop_production.sh" ]; then
+    echo "正在停止旧服务..."
+    bash "$SCRIPT_DIR/stop_production.sh"
+fi
+
+# 再次检查端口占用
+if netstat -tlnp 2>/dev/null | grep -q ":{PORT} "; then
+    echo "警告：端口 {PORT} 仍被占用，尝试强制释放..."
+    fuser -k -n tcp {PORT} 2>/dev/null || true
+    sleep 1
+fi
+
 # 使用daphne启动生产服务器
 echo "正在启动Daphne..."
 # 设置生产环境变量
