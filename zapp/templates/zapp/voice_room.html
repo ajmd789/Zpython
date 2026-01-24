@@ -718,13 +718,28 @@
         // 开始通话 (WebRTC setup)
         async function startCall() {
             log('开始WebRTC设置...');
+            
+            // 检查安全上下文
+            if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const msg = '错误：浏览器限制麦克风只能在 HTTPS 或 localhost 环境下使用。当前为 HTTP 环境，无法上麦。';
+                console.error(msg);
+                showError(msg);
+                throw new Error(msg);
+            }
+
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 createPeerConnection();
                 localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
             } catch (err) {
                 console.error('获取麦克风失败:', err);
-                throw new Error('无法获取麦克风权限');
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    throw new Error('麦克风权限被拒绝，请允许浏览器访问麦克风');
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    throw new Error('未检测到麦克风设备');
+                } else {
+                    throw new Error('无法获取麦克风权限: ' + err.message);
+                }
             }
         }
         
