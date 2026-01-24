@@ -64,6 +64,7 @@ class WebRTCRoomManager:
                     logger.info(f"User {user_id} already in room {room_id} at slot {i}")
                     # 更新用户活动时间
                     slot['last_active'] = time.time()
+                    slot['last_spoke'] = time.time()
                     return True, i, "User already in room"
             
             # 找到空闲槽位，按顺序分配（先分配0号槽位，再分配1号槽位）
