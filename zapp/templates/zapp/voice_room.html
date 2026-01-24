@@ -365,8 +365,6 @@
         let isConnected = false;
         let error = null;
         let peerConnection = null;
-        let processedOffers = new Set();
-        let processedAnswers = new Set();
         let pollingInterval = null;
         let animationFrameId = null;
         let iceServers = {
@@ -556,8 +554,7 @@
             if (!otherSlot) return;
 
             // 处理收到的offer
-            if (otherSlot.offer && !processedOffers.has(otherSlot.user_id)) {
-                processedOffers.add(otherSlot.user_id);
+            if (otherSlot.offer) {
                 const answer = await createAnswer(otherSlot.offer);
                 if (answer) {
                     await sendAnswer(answer);
@@ -565,14 +562,21 @@
             }
 
             // 处理收到的answer
-            if (otherSlot.answer && !processedAnswers.has(otherSlot.user_id)) {
-                processedAnswers.add(otherSlot.user_id);
+            if (otherSlot.answer) {
                 await setRemoteAnswer(otherSlot.answer);
             }
 
             // 处理ICE candidates
-            for (const candidate of otherSlot.ice_candidates) {
-                await addIceCandidate(candidate);
+            if (otherSlot.ice_candidates && otherSlot.ice_candidates.length > 0) {
+                for (const candidate of otherSlot.ice_candidates) {
+                    await addIceCandidate(candidate);
+                }
+                // 处理完ICE candidates后清除，避免重复处理
+                await fetch('/apipy/api/room/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'clear-ice-candidates', user_id: userId })
+                });
             }
         }
 
@@ -603,23 +607,12 @@
                     mySlotIndex = data.data.slot_index;
                     await fetchRoomData();
 
-                    // 如果是第一个用户，创建offer
-                    setTimeout(async () => {
-                        try {
-                            const roomResponse = await fetch('/apipy/api/room/');
-                            const roomData = await roomResponse.json();
-                            const room = roomData.data;
-                            const otherSlotIndex = mySlotIndex === 0 ? 1 : 0;
-                            if (room.slots[otherSlotIndex]) {
-                                const offer = await createOffer();
-                                if (offer) {
-                                    await sendOffer(offer);
-                                }
-                            }
-                        } catch (offerErr) {
-                            console.error('创建offer失败:', offerErr);
-                        }
-                    }, 500);
+                    // 无论是否有其他用户，都创建offer
+                    // 当其他用户加入时，会处理当前用户的offer
+                    const offer = await createOffer();
+                    if (offer) {
+                        await sendOffer(offer);
+                    }
 
                     // 显示音频可视化
                     audioVisualizerElement.style.display = 'block';
@@ -661,8 +654,6 @@
                     body: JSON.stringify({ action: 'leave', user_id: userId })
                 });
                 mySlotIndex = null;
-                processedOffers.clear();
-                processedAnswers.clear();
                 await fetchRoomData();
 
                 // 隐藏音频可视化

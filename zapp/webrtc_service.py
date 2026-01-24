@@ -148,6 +148,21 @@ class WebRTCRoomManager:
             
             return False, "User not in room"
     
+    def clear_ice_candidates(self, room_id, user_id):
+        """清除 ICE candidates"""
+        with self.lock:
+            room = self.rooms.get(room_id)
+            if not room:
+                return False, "Room not found"
+            
+            for i, slot in enumerate(room['slots']):
+                if slot and slot['user_id'] == user_id:
+                    slot['ice_candidates'] = []
+                    logger.debug(f"Cleared ICE candidates for user {user_id} in room {room_id}")
+                    return True, "success"
+            
+            return False, "User not in room"
+    
     def cleanup_inactive_users(self):
         """清理不活跃的用户"""
         with self.lock:
@@ -355,6 +370,30 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.add_ice_candidate(room_id, user_id, candidate)
+                room = webrtc_manager.get_room(room_id)
+                
+                return JsonResponse({
+                    'code': 200 if success else 404,
+                    'data': {
+                        'success': success,
+                        'room': room
+                    },
+                    'message': message
+                })
+            
+            elif action == 'clear-ice-candidates':
+                # 清除ICE candidates
+                room_id = body.get('room_id', 'main-room')
+                user_id = body.get('user_id')
+                
+                if not user_id:
+                    return JsonResponse({
+                        'code': 400,
+                        'data': None,
+                        'message': 'Missing user_id'
+                    }, status=400)
+                
+                success, message = webrtc_manager.clear_ice_candidates(room_id, user_id)
                 room = webrtc_manager.get_room(room_id)
                 
                 return JsonResponse({
