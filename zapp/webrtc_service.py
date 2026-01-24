@@ -198,11 +198,11 @@ class WebRTCRoomManager:
                 for i, slot in enumerate(room['slots']):
                     if slot:
                         # 检查30秒不说话的用户
-                        if current_time - slot['last_spoke'] > 30:
-                            logger.info(f"Removed silent user {slot['user_id']} from room {room_id} (30s without speaking)")
-                            room['slots'][i] = None
+                        # if current_time - slot['last_spoke'] > 300:
+                        #     logger.info(f"Removed silent user {slot['user_id']} from room {room_id} (300s without speaking)")
+                        #     room['slots'][i] = None
                         # 检查心跳超时的用户
-                        elif current_time - slot['last_active'] > self.heartbeat_timeout:
+                        if current_time - slot['last_active'] > self.heartbeat_timeout:
                             logger.info(f"Removed inactive user {slot['user_id']} from room {room_id}")
                             room['slots'][i] = None
                 
@@ -252,10 +252,12 @@ def room_api(request):
             return JsonResponse({
                 'code': 200,
                 'data': {
-                    'room_id': room_id,
-                    'slots': room['slots'],
-                    'created_at': room['created_at'],
-                    'max_capacity': room['max_capacity']
+                    'room': {
+                        'room_id': room_id,
+                        'slots': room['slots'],
+                        'created_at': room['created_at'],
+                        'max_capacity': room['max_capacity']
+                    }
                 },
                 'message': 'success'
             })

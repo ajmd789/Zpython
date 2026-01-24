@@ -384,13 +384,15 @@
         let dataArray = null;
         
         // STUN服务器配置 - 使用自建服务
-        // 动态获取当前主机名，假设STUN服务运行在同一台机器的3478端口
-        const stunHost = window.location.hostname;
+        // 部署域名: haoguozhi.com
+        const stunHost = 'haoguozhi.com'; 
         const iceServers = {
             iceServers: [
                 { urls: `stun:${stunHost}:3478` }
             ]
         };
+
+        log(`STUN配置: stun:${stunHost}:3478 (生产环境域名)`);
 
         // 日志函数
         function log(...args) {
@@ -529,8 +531,11 @@
 
         // 更新房间UI
         function updateRoomUI(data) {
-            if (!data || !data.room) return;
-            const room = data.room;
+            if (!data) return;
+            // 兼容直接返回room对象或嵌套在room字段中的情况
+            const room = data.room || (data.slots ? data : null);
+            
+            if (!room) return;
             
             // 更新在线人数
             onlineCountElement.textContent = `${room.online_count}/2 在线`;
@@ -764,7 +769,24 @@
 
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
+                    const type = event.candidate.type;
+                    const address = event.candidate.address || event.candidate.ip;
+                    log(`收集到ICE Candidate: [${type}] ${address}:${event.candidate.port} protocol:${event.candidate.protocol}`);
+                    
+                    if (type === 'srflx') {
+                        log('✅ 成功获取到 STUN 反射地址 (srflx)，自建STUN服务工作正常！');
+                    }
+                    
                     sendIceCandidate(event.candidate);
+                } else {
+                    log('ICE Candidate 收集完成');
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                log(`ICE连接状态变化: ${peerConnection.iceConnectionState}`);
+                if (peerConnection.iceConnectionState === 'failed') {
+                    log('❌ ICE连接失败，可能是NAT穿透失败或防火墙阻挡');
                 }
             };
 
