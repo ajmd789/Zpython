@@ -4,11 +4,35 @@ import binascii
 import logging
 import threading
 import sys
+import os
+from logging.handlers import RotatingFileHandler
 
 # 配置日志
+# 确保日志目录存在
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = os.path.join(BASE_DIR, 'logs')
+if not os.path.exists(LOG_DIR):
+    try:
+        os.makedirs(LOG_DIR)
+    except Exception:
+        pass
+
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('STUN-Server')
+
+# 添加单独的文件日志
+try:
+    file_handler = RotatingFileHandler(
+        os.path.join(LOG_DIR, 'stun.log'),
+        maxBytes=1024*1024,
+        backupCount=5,
+        encoding='utf-8'
+    )
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(file_handler)
+except Exception as e:
+    print(f"Failed to setup file logging: {e}")
 
 class StunServer:
     def __init__(self, host='0.0.0.0', port=3478):
