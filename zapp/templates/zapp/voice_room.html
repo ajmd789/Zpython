@@ -413,13 +413,13 @@
         // 生成用户ID
         async function generateUserId() {
             try {
-                const response = await fetch('/zapp/api/room/', {
+                const response = await fetch('/apipy/api/room/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'generate-id' })
                 });
                 const data = await response.json();
-                userId = data.data.userId;
+                userId = data.data.user_id;
                 localStorage.setItem('voice-room-user-id', userId);
                 userIdElement.textContent = userId;
             } catch (err) {
@@ -452,7 +452,7 @@
         // 获取房间数据
         async function fetchRoomData() {
             try {
-                const response = await fetch('/zapp/api/room/');
+                const response = await fetch('/apipy/api/room/');
                 const data = await response.json();
                 const room = data.data;
                 updateRoomUI(room);
@@ -553,19 +553,19 @@
             try {
                 hideError();
                 await startCall();
-                const response = await fetch('/zapp/api/room/', {
+                const response = await fetch('/apipy/api/room/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'join', userId })
+                    body: JSON.stringify({ action: 'join', user_id: userId })
                 });
                 const data = await response.json();
                 if (data.code === 200) {
-                    mySlotIndex = data.data.slotIndex;
+                    mySlotIndex = data.data.slot_index;
                     await fetchRoomData();
 
                     // 如果是第一个用户，创建offer
                     setTimeout(async () => {
-                        const roomResponse = await fetch('/zapp/api/room/');
+                        const roomResponse = await fetch('/apipy/api/room/');
                         const roomData = await roomResponse.json();
                         const room = roomData.data;
                         const otherSlotIndex = mySlotIndex === 0 ? 1 : 0;
@@ -590,10 +590,10 @@
         async function handleLeave() {
             try {
                 endCall();
-                await fetch('/zapp/api/room/', {
+                await fetch('/apipy/api/room/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'leave', userId })
+                    body: JSON.stringify({ action: 'leave', user_id: userId })
                 });
                 mySlotIndex = null;
                 processedOffers.clear();
@@ -700,10 +700,10 @@
 
         // 发送offer
         async function sendOffer(offer) {
-            await fetch('/zapp/api/room/', {
+            await fetch('/apipy/api/room/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'offer', userId, offer })
+                body: JSON.stringify({ action: 'offer', user_id: userId, offer })
             });
         }
 
@@ -728,10 +728,10 @@
 
         // 发送answer
         async function sendAnswer(answer) {
-            await fetch('/zapp/api/room/', {
+            await fetch('/apipy/api/room/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'answer', userId, answer })
+                body: JSON.stringify({ action: 'answer', user_id: userId, answer })
             });
         }
 
@@ -757,10 +757,10 @@
 
         // 发送ICE candidate
         async function sendIceCandidate(candidate) {
-            await fetch('/zapp/api/room/', {
+            await fetch('/apipy/api/room/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'ice-candidate', userId, candidate: candidate.toJSON() })
+                body: JSON.stringify({ action: 'ice-candidate', user_id: userId, candidate: candidate.toJSON() })
             });
         }
 
