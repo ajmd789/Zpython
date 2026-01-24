@@ -131,6 +131,11 @@ def check_virtual_environment():
         if platform.system() == 'Windows':
             logger.info("Windows开发环境下，跳过虚拟环境检查继续执行...")
             return True
+            
+        # 如果是只生成文件模式，允许跳过
+        if len(sys.argv) > 1 and sys.argv[1] == "--generate-only":
+            logger.info("生成模式：跳过虚拟环境激活检查")
+            return True
         
         return False
     
@@ -295,6 +300,10 @@ else
     exit 1
 fi
 
+# 进入项目根目录，确保daphne能找到zproject模块
+cd "$PROJECT_ROOT"
+echo "已切换到工作目录: $(pwd)"
+
 echo "=== 启动Django生产服务器（Daphne/ASGI） ==="
 echo "监听地址: {GUNICORN_BIND}"
 echo "超时时间: {GUNICORN_TIMEOUT}秒"
@@ -334,7 +343,7 @@ fi
 
 # 启动服务监控脚本
 echo "启动服务监控脚本..."
-python "$(dirname "$(dirname "$0")")/monitor_server.py" > monitor_start.log 2>&1 &
+python monitor_server.py > monitor_start.log 2>&1 &
 
 if [ $? -eq 0 ]; then
     echo "监控脚本启动成功"
