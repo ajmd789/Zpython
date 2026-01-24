@@ -832,7 +832,17 @@
                     log('收到Offer但我没上麦，忽略');
                     return null;
                 }
-                if (!peerConnection) startCall(); // 确保PC存在
+                
+                // 尝试自动重新开始通话（例如页面刷新后）
+                if (!peerConnection) {
+                    log('检测到在麦上但无连接，尝试自动恢复...');
+                    try {
+                        await startCall();
+                    } catch (e) {
+                        console.error('自动恢复通话失败:', e);
+                        return null;
+                    }
+                }
             }
             
             try {

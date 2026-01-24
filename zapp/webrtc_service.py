@@ -39,6 +39,26 @@ class WebRTCRoomManager:
                 }
                 logger.info(f"Created default room {room_id} with capacity 2")
             return self.rooms.get(room_id)
+
+    def get_room_status(self, room_id):
+        """获取带有在线人数的房间状态"""
+        # 注意：这里不加锁调用self.get_room，因为get_room会加锁。
+        # 但我们需要确保copy操作也是线程安全的，所以最好在这里加锁，
+        # 或者直接操作self.rooms
+        with self.lock:
+            if room_id not in self.rooms:
+                # 如果不存在，get_room会创建
+                self.rooms[room_id] = {
+                    'slots': [None, None],
+                    'created_at': time.time(),
+                    'max_capacity': 2
+                }
+            
+            room = self.rooms.get(room_id)
+            status = room.copy()
+            status['room_id'] = room_id
+            status['online_count'] = sum(1 for slot in room['slots'] if slot is not None)
+            return status
     
     def generate_user_id(self):
         """生成唯一的用户 ID"""
@@ -240,7 +260,7 @@ def room_api(request):
         if request.method == 'GET':
             # 获取房间状态
             room_id = request.GET.get('room_id', 'main-room')
-            room = webrtc_manager.get_room(room_id)
+            room = webrtc_manager.get_room_status(room_id)
             
             if not room:
                 return JsonResponse({
@@ -252,12 +272,7 @@ def room_api(request):
             return JsonResponse({
                 'code': 200,
                 'data': {
-                    'room': {
-                        'room_id': room_id,
-                        'slots': room['slots'],
-                        'created_at': room['created_at'],
-                        'max_capacity': room['max_capacity']
-                    }
+                    'room': room
                 },
                 'message': 'success'
             })
@@ -299,7 +314,7 @@ def room_api(request):
                     }, status=400)
                 
                 success, slot_index, message = webrtc_manager.join_room(room_id, user_id)
-                room = webrtc_manager.get_room(room_id)
+                room = webrtc_manager.get_room_status(room_id)
                 
                 return JsonResponse({
                     'code': 200 if success else 400,
@@ -324,7 +339,7 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.leave_room(room_id, user_id)
-                room = webrtc_manager.get_room(room_id)
+                room = webrtc_manager.get_room_status(room_id)
                 
                 return JsonResponse({
                     'code': 200,
@@ -356,7 +371,7 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.set_offer(room_id, user_id, offer)
-                room = webrtc_manager.get_room(room_id)
+                room = webrtc_manager.get_room_status(room_id)
                 
                 return JsonResponse({
                     'code': 200 if success else 404,
@@ -388,7 +403,7 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.set_answer(room_id, user_id, answer)
-                room = webrtc_manager.get_room(room_id)
+                room = webrtc_manager.get_room_status(room_id)
                 
                 return JsonResponse({
                     'code': 200 if success else 404,
@@ -420,7 +435,7 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.add_ice_candidate(room_id, user_id, candidate)
-                room = webrtc_manager.get_room(room_id)
+                room = webrtc_manager.get_room_status(room_id)
                 
                 return JsonResponse({
                     'code': 200 if success else 404,
@@ -444,7 +459,7 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.clear_ice_candidates(room_id, user_id)
-                room = webrtc_manager.get_room(room_id)
+                room = webrtc_manager.get_room_status(room_id)
                 
                 return JsonResponse({
                     'code': 200 if success else 404,
@@ -468,7 +483,7 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.update_spoke_time(room_id, user_id)
-                room = webrtc_manager.get_room(room_id)
+                room = webrtc_manager.get_room_status(room_id)
                 
                 return JsonResponse({
                     'code': 200 if success else 404,
@@ -492,7 +507,7 @@ def room_api(request):
                     }, status=400)
                 
                 success, message = webrtc_manager.update_heartbeat(room_id, user_id)
-                room = webrtc_manager.get_room(room_id)
+                room = webrtc_manager.get_room_status(room_id)
                 
                 return JsonResponse({
                     'code': 200 if success else 404,
