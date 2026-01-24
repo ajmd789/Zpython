@@ -68,3 +68,6 @@ htmlcov/
 *.pyc
 __pycache__/
 accounting.db
+.wdm
+chrome_user_data
+staticfiles

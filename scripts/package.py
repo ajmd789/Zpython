@@ -31,10 +31,11 @@ ASSETS_DIR = "assets"            # 静态资源目录
 DB_FILE = "db.sqlite3"           # 数据库文件
 VENV_NAME = "venv"               # 虚拟环境名称
 
-# WSGI配置
-WSGI_MODULE = "zproject.wsgi:application"  # WSGI模块
-GUNICORN_BIND = f"0.0.0.0:{PORT}"          # Gunicorn绑定地址
-GUNICORN_WORKERS = 2                       # Worker数量
+# WSGI/ASGI配置
+WSGI_MODULE = "zproject.wsgi:application"  # WSGI模块 (保留供参考)
+ASGI_MODULE = "zproject.asgi:application"  # ASGI模块 (用于Daphne)
+GUNICORN_BIND = f"0.0.0.0:{PORT}"          # 绑定地址
+GUNICORN_WORKERS = 2                       # Worker数量 (Daphne不需要此参数，它使用异步)
 GUNICORN_TIMEOUT = 30                      # 超时时间（秒）
 
 # 日志配置
@@ -273,9 +274,9 @@ def generate_startup_scripts():
     dist_dir = Path(PROJECT_ROOT) / "dist"
     dist_dir.mkdir(exist_ok=True)
     
-    # 生成Linux启动脚本（gunicorn）
+    # 生成Linux启动脚本（Daphne）
     linux_script = f"""#!/bin/bash
-# Django项目一键部署启动脚本 - 完整修复版
+# Django项目一键部署启动脚本 - 完整修复版 (Daphne/ASGI)
 
 # 进入脚本所在目录
 cd "$(dirname "$0")"
@@ -294,42 +295,40 @@ else
     exit 1
 fi
 
-echo "=== 启动Django生产服务器（Gunicorn） ==="
+echo "=== 启动Django生产服务器（Daphne/ASGI） ==="
 echo "监听地址: {GUNICORN_BIND}"
-echo "Worker数量: {GUNICORN_WORKERS}"
 echo "超时时间: {GUNICORN_TIMEOUT}秒"
 echo ""
 
-# 使用gunicorn启动生产服务器
-echo "正在启动Gunicorn..."
+# 使用daphne启动生产服务器
+echo "正在启动Daphne..."
 # 设置生产环境变量
 export DJANGO_DEBUG=False
-gunicorn {WSGI_MODULE} \
-    --bind {GUNICORN_BIND} \
-    --workers {GUNICORN_WORKERS} \
-    --timeout {GUNICORN_TIMEOUT} \
-    --log-level debug \
-    --access-logfile access.log \
-    --error-logfile error.log \
-    --pythonpath "$PROJECT_ROOT" \
-    --chdir "$PROJECT_ROOT" > gunicorn_start.log 2>&1 &
 
-# 获取Gunicorn进程ID
-GUNICORN_PID=$!
-echo "Gunicorn进程ID: $GUNICORN_PID"
+# 解析绑定地址和端口
+BIND_HOST=$(echo "{GUNICORN_BIND}" | cut -d: -f1)
+BIND_PORT=$(echo "{GUNICORN_BIND}" | cut -d: -f2)
 
-# 等待Gunicorn启动
+daphne -b $BIND_HOST -p $BIND_PORT {ASGI_MODULE} \
+    --access-log access.log \
+    > daphne_start.log 2>&1 &
+
+# 获取Daphne进程ID
+DAPHNE_PID=$!
+echo "Daphne进程ID: $DAPHNE_PID"
+
+# 等待Daphne启动
 sleep 3
 
-# 检查Gunicorn是否成功启动
-if kill -0 $GUNICORN_PID 2>/dev/null; then
-    echo "Gunicorn启动成功！"
+# 检查Daphne是否成功启动
+if kill -0 $DAPHNE_PID 2>/dev/null; then
+    echo "Daphne启动成功！"
     echo "服务正在运行，访问地址: http://{GUNICORN_BIND}"
-    echo "日志文件: access.log, error.log"
+    echo "日志文件: access.log, daphne_start.log"
 else
-    echo "✗ Gunicorn启动失败！"
+    echo "✗ Daphne启动失败！"
     echo "查看错误日志:"
-    tail -n 20 gunicorn_start.log
+    tail -n 20 daphne_start.log
     exit 1
 fi
 
@@ -346,10 +345,10 @@ fi
 echo ""
 echo "=== 部署完成！ ==="
 echo "服务状态检查命令:"
-echo "  查看Gunicorn进程: ps aux | grep gunicorn"
+echo "  查看Daphne进程: ps aux | grep daphne"
 echo "  查看监听端口: netstat -tlnp | grep {PORT}"
 echo "  查看访问日志: tail -f access.log"
-echo "  查看错误日志: tail -f error.log"
+echo "  查看启动日志: tail -f daphne_start.log"
 echo "  测试服务: curl http://localhost:{PORT}"
 """
     
@@ -359,9 +358,9 @@ echo "  测试服务: curl http://localhost:{PORT}"
 
 echo "=== 停止Django服务 ==="
 
-# 停止Gunicorn进程
-echo "停止Gunicorn进程..."
-pkill -f gunicorn
+# 停止Daphne进程
+echo "停止Daphne进程..."
+pkill -f daphne
 
 # 停止监控脚本
 echo "停止监控脚本..."
@@ -372,14 +371,14 @@ sleep 2
 
 # 检查是否还有残留进程
 echo "检查残留进程..."
-remaining_gunicorn=$(pgrep -f gunicorn | wc -l)
+remaining_daphne=$(pgrep -f daphne | wc -l)
 remaining_monitor=$(pgrep -f monitor_server.py | wc -l)
 
-if [ $remaining_gunicorn -eq 0 ] && [ $remaining_monitor -eq 0 ]; then
+if [ $remaining_daphne -eq 0 ] && [ $remaining_monitor -eq 0 ]; then
     echo "所有服务已停止"
 else
     echo "发现残留进程，强制终止..."
-    pkill -9 -f gunicorn
+    pkill -9 -f daphne
     pkill -9 -f monitor_server.py
     echo "残留进程已终止"
 fi
@@ -668,13 +667,12 @@ curl http://$(hostname -I | awk '{{print $1}}'):{PORT}
 
 ### 日志文件
 - 访问日志: {PROJECT_ROOT}/access.log
-- 错误日志: {PROJECT_ROOT}/error.log
-- 启动日志: {PROJECT_ROOT}/gunicorn_start.log
+- 启动日志: {PROJECT_ROOT}/daphne_start.log
 
 ## 故障排除
 
 如果服务启动失败：
-1. 检查错误日志: tail -f error.log
+1. 检查启动日志: tail -f daphne_start.log
 2. 检查系统日志: sudo journalctl -u zpython -n 50
 3. 手动测试: bash dist/start_production.sh
 4. 运行诊断: python manage.py check

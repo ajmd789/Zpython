@@ -11,17 +11,16 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 # 数据库路径
-# 对于Windows环境，使用相对路径或Windows风格的绝对路径
-if os.name == 'nt':
-    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
-else:
-    DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+# 使用相对路径以确保在不同环境下都能正常工作
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DB_PATH = os.path.join(BASE_DIR, 'accounting.db')
+
 # Windows路径兼容
 WINDOWS_DB_PATH = DB_PATH
 
 class MemoService:
     def __init__(self):
-        self.db_path = WINDOWS_DB_PATH if os.name == 'nt' else DB_PATH
+        self.db_path = DB_PATH
         # 获取敏感词文件路径
         self.sensitive_words_file = os.path.join(os.path.dirname(__file__), 'sensitive_words.txt')
         # 加载并解码敏感词

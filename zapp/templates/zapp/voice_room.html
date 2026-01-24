@@ -335,7 +335,7 @@
                     <button class="btn-primary" onclick="handleJoin(1)">上麦</button>
                 </div>
             </div>
-        </div>
+        </div> 
 
         <div id="audio-visualizer" class="audio-visualizer" style="display: none;">
             <div class="visualizer-title">本地音频</div>
@@ -355,6 +355,17 @@
     <audio id="remote-audio" autoplay playsinline style="display: none;"></audio>
 
     <script>
+        // DOM 元素
+        const userIdElement = document.getElementById('user-id');
+        const onlineCountElement = document.getElementById('online-count');
+        const connectionStatusElement = document.getElementById('connection-status');
+        const errorMessageElement = document.getElementById('error-message');
+        const audioVisualizerElement = document.getElementById('audio-visualizer');
+        const visualizerContainer = document.getElementById('visualizer-container');
+        const remoteAudioVisualizerElement = document.getElementById('remote-audio-visualizer');
+        const remoteVisualizerContainer = document.getElementById('remote-visualizer-container');
+        const remoteAudioElement = document.getElementById('remote-audio');
+
         // WebRTC相关状态
         let userId = null;
         let mySlotIndex = null;
@@ -367,42 +378,23 @@
         let pollingInterval = null;
         let heartbeatInterval = null; // 心跳定时器
         let animationFrameId = null;
-        
-        // STUN服务器配置
-        const iceServers = {
-            iceServers: [
-                { urls: "stun:stun.miwifi.com" },
-                { urls: "stun:stun.qq.com" },
-                { urls: "stun:stun.chat.bilibili.com" }
-            ]
-        };
-
-        // 音频可视化相关
+        let ws = null; // WebSocket connection
         let audioContext = null;
         let analyser = null;
         let dataArray = null;
-        const barCount = 50;
+        
+        // STUN服务器配置 - 使用自建服务
+        // 动态获取当前主机名，假设STUN服务运行在同一台机器的3478端口
+        const stunHost = window.location.hostname;
+        const iceServers = {
+            iceServers: [
+                { urls: `stun:${stunHost}:3478` }
+            ]
+        };
 
-        // DOM元素
-        const userIdElement = document.getElementById('user-id');
-        const errorMessageElement = document.getElementById('error-message');
-        const onlineCountElement = document.getElementById('online-count');
-        const connectionStatusElement = document.getElementById('connection-status');
-        const audioVisualizerElement = document.getElementById('audio-visualizer');
-        const remoteAudioVisualizerElement = document.getElementById('remote-audio-visualizer');
-        const visualizerContainer = document.getElementById('visualizer-container');
-        const remoteVisualizerContainer = document.getElementById('remote-visualizer-container');
-        const remoteAudioElement = document.getElementById('remote-audio');
-
-        // 日志辅助函数
-        function log(message, data = null) {
-            const timestamp = new Date().toLocaleTimeString();
-            const logMsg = `[${timestamp}] ${message}`;
-            if (data) {
-                console.log(logMsg, data);
-            } else {
-                console.log(logMsg);
-            }
+        // 日志函数
+        function log(...args) {
+            console.log(`[${new Date().toLocaleTimeString()}]`, ...args);
         }
 
         // 初始化
@@ -418,10 +410,13 @@
                 log('使用现有用户ID:', userId);
             }
 
+            // 连接WebSocket
+            connectWebSocket();
+
             // 创建音频可视化条
             createVisualizerBars();
 
-            // 开始轮询信令
+            // 开始轮询信令 (仅用于房间状态，不用于WebRTC信令)
             startPolling();
             
             // 开始心跳
@@ -430,75 +425,84 @@
 
         // 生成用户ID
         async function generateUserId() {
-            try {
-                log('正在生成新用户ID...');
-                const response = await fetch('/apipy/api/room/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'generate-id' })
-                });
-                const data = await response.json();
-                userId = data.data.user_id;
-                localStorage.setItem('voice-room-user-id', userId);
-                userIdElement.textContent = userId;
-                log('生成新用户ID成功:', userId);
-            } catch (err) {
-                console.error('生成用户ID失败:', err);
-                showError('生成用户ID失败');
-            }
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('voice-room-user-id', userId);
+            userIdElement.textContent = userId;
+            log('生成新用户ID:', userId);
+        }
+
+        // 连接WebSocket
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/voice/main-room/`;
+            log(`连接WebSocket: ${wsUrl}`);
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                log('WebSocket连接成功');
+                // 发送简单的加入消息（可选）
+                ws.send(JSON.stringify({ action: 'hello', user_id: userId }));
+            };
+            
+            ws.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+                // log('收到WS消息:', data.action);
+                
+                if (data.action === 'offer') {
+                    await handleRemoteOffer(data);
+                } else if (data.action === 'answer') {
+                    await handleRemoteAnswer(data);
+                } else if (data.action === 'ice-candidate') {
+                    await handleRemoteCandidate(data);
+                }
+            };
+            
+            ws.onclose = () => {
+                log('WebSocket断开，3秒后重连...');
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = (err) => {
+                console.error('WebSocket错误:', err);
+            };
         }
 
         // 创建可视化条
         function createVisualizerBars() {
             visualizerContainer.innerHTML = '';
-            remoteVisualizerContainer.innerHTML = '';
-            
-            for (let i = 0; i < barCount; i++) {
+            for (let i = 0; i < 20; i++) {
                 const bar = document.createElement('div');
                 bar.className = 'bar';
                 visualizerContainer.appendChild(bar);
-            }
-
-            for (let i = 0; i < barCount; i++) {
-                const bar = document.createElement('div');
-                bar.className = 'bar';
-                remoteVisualizerContainer.appendChild(bar);
             }
         }
 
         // 开始轮询信令
         function startPolling() {
-            // 使用递归setTimeout替代setInterval
             const poll = async () => {
                 try {
                     await fetchRoomData();
                 } catch (err) {
                     console.error('轮询失败:', err);
                 } finally {
-                    // 延迟1000毫秒再发送下一次请求
                     pollingInterval = setTimeout(poll, 1000);
                 }
             };
             poll();
         }
         
-        // 开始发送心跳
+        // 开始心跳
         function startHeartbeat() {
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            
-            heartbeatInterval = setInterval(async () => {
-                if (!userId) return;
-                
-                try {
-                    await fetch('/apipy/api/room/', {
+            heartbeatInterval = setInterval(() => {
+                if (userId) {
+                     fetch('/apipy/api/room/', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'heartbeat', user_id: userId })
-                    });
-                } catch (err) {
-                    console.error('发送心跳失败:', err);
+                    }).catch(err => console.error('心跳发送失败', err));
                 }
-            }, 5000); // 每5秒发送一次心跳
+            }, 3000);
         }
 
         // 获取房间数据
@@ -512,140 +516,125 @@
                 });
                 clearTimeout(timeoutId);
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP error! ${response.status}`);
                 
                 const data = await response.json();
-                const room = data.data;
-                
-                updateRoomUI(room);
-                await processSignaling(room);
-                
+                updateRoomUI(data.data);
                 return true;
             } catch (err) {
-                if (err.name !== 'AbortError') {
-                    console.error('获取房间数据失败:', err);
-                }
+                if (err.name !== 'AbortError') console.error('获取房间数据失败:', err);
                 return false;
             }
         }
 
         // 更新房间UI
-        function updateRoomUI(room) {
-            const onlineCount = room.slots.filter(slot => slot !== null).length;
-            onlineCountElement.textContent = `${onlineCount}/2 在线`;
-
-            // 检查自己是否还在房间里
-            let foundSelf = false;
+        function updateRoomUI(data) {
+            if (!data || !data.room) return;
+            const room = data.room;
             
+            // 更新在线人数
+            onlineCountElement.textContent = `${room.online_count}/2 在线`;
+            
+            // 更新槽位状态
             room.slots.forEach((slot, index) => {
                 const slotElement = document.getElementById(`slot-${index}`);
+                const statusElement = slotElement.querySelector('.slot-status');
+                const actionButton = slotElement.querySelector('button');
+                
                 if (slot) {
                     slotElement.classList.add('occupied');
-                    
+                    statusElement.textContent = `占用: ${slot.user_id}`;
                     if (slot.user_id === userId) {
-                        foundSelf = true;
-                        mySlotIndex = index; // 确认自己的位置
                         slotElement.classList.add('current-user');
-                        slotElement.querySelector('.slot-status').textContent = `你 (${slot.user_id})`;
-                        updateSlotActions(slotElement, index, true);
+                        mySlotIndex = index;
                     } else {
                         slotElement.classList.remove('current-user');
-                        slotElement.querySelector('.slot-status').textContent = slot.user_id;
-                        updateSlotActions(slotElement, index, false);
-                    }
-                    
-                    if (slot.user_id === userId) {
-                        slotElement.querySelector('.slot-status').textContent += isMuted ? ' (已静音)' : '';
                     }
                 } else {
-                    slotElement.classList.remove('occupied', 'current-user', 'speaking');
-                    slotElement.querySelector('.slot-status').textContent = '空闲';
-                    updateSlotActions(slotElement, index, false);
+                    slotElement.classList.remove('occupied', 'current-user');
+                    statusElement.textContent = '空闲';
                 }
+                
+                updateSlotActions(index, slot);
             });
-            
-            // 如果之前在房间里，现在不在了（被踢出或重置）
-            if (mySlotIndex !== null && !foundSelf) {
-                log('检测到已不在房间中，执行清理...');
-                handleLeave(true); // pass true to suppress api call since we are already gone
-            }
-
-            updateConnectionStatus();
-        }
-
-        // 更新连接状态
-        function updateConnectionStatus() {
-            if (isConnected) {
-                connectionStatusElement.innerHTML = '🟢 已连接';
-            } else {
-                connectionStatusElement.innerHTML = '🔴 未连接';
-            }
         }
 
         // 更新槽位操作按钮
-        function updateSlotActions(slotElement, index, isCurrentUser) {
-            const actionsElement = slotElement.querySelector('.slot-actions');
-            if (isCurrentUser) {
-                actionsElement.innerHTML = `
-                    <button class="btn-secondary" onclick="handleToggleMute()">${isMuted ? '取消静音' : '静音'}</button>
-                    <button class="btn-danger" onclick="handleLeave()">下麦</button>
-                `;
-            } else if (mySlotIndex === null) {
-                // 只有当自己不在任何槽位时，才显示上麦按钮
-                // 并且只有当该槽位为空时才显示（由外层if控制，这里slotElement内容是根据slot是否为空来渲染的）
-                // 修正：updateRoomUI中，如果slot存在，会进入if(slot)，否则进入else
-                // 如果进入else (slot为空)，且mySlotIndex为null，显示上麦
-                if (!slotElement.classList.contains('occupied')) {
-                     actionsElement.innerHTML = '<button class="btn-primary" onclick="handleJoin(' + index + ')">上麦</button>';
+        function updateSlotActions(index, slot) {
+            const slotElement = document.getElementById(`slot-${index}`);
+            const actionButton = slotElement.querySelector('button');
+            
+            // 重置按钮
+            actionButton.onclick = null;
+            actionButton.className = '';
+            
+            if (mySlotIndex === null) {
+                // 我未上麦
+                if (!slot) {
+                    // 空闲槽位 -> 可上麦
+                    actionButton.textContent = '上麦';
+                    actionButton.className = 'btn-primary';
+                    actionButton.onclick = () => handleJoin(index);
+                    actionButton.disabled = false;
                 } else {
-                     actionsElement.innerHTML = '';
+                    // 被占用 -> 不可操作
+                    actionButton.textContent = '已占用';
+                    actionButton.className = 'btn-secondary';
+                    actionButton.disabled = true;
                 }
             } else {
-                // 自己在其他槽位，或者是别人占用的槽位
-                actionsElement.innerHTML = '';
+                // 我已上麦
+                if (index === mySlotIndex) {
+                    // 我的槽位 -> 下麦
+                    actionButton.textContent = '下麦';
+                    actionButton.className = 'btn-danger';
+                    actionButton.onclick = () => handleLeave();
+                    actionButton.disabled = false;
+                } else {
+                    // 其他槽位 -> 不可操作
+                    actionButton.textContent = slot ? '已占用' : '空闲';
+                    actionButton.className = 'btn-secondary';
+                    actionButton.disabled = true;
+                }
             }
         }
 
-        // 处理信令
-        async function processSignaling(room) {
-            if (mySlotIndex === null || !room || !userId) return;
-
-            const otherSlotIndex = mySlotIndex === 0 ? 1 : 0;
-            const otherSlot = room.slots[otherSlotIndex];
-            const mySlot = room.slots[mySlotIndex];
-
-            // 如果对方不在，或者对方没有信令数据，直接返回
-            if (!otherSlot) return;
-
-            // 1. 处理 Offer: 对方发来 Offer，我还没有 Answer
-            if (otherSlot.offer && !mySlot.answer) {
-                log('收到Offer，准备创建Answer...');
-                const answer = await createAnswer(otherSlot.offer);
-                if (answer) {
-                    await sendAnswer(answer);
-                }
+        // 更新连接状态UI
+        function updateConnectionStatus(status) {
+            if (status === 'connected') {
+                connectionStatusElement.innerHTML = '🟢 已连接';
+                connectionStatusElement.className = 'connected-indicator';
+                isConnected = true;
+            } else {
+                connectionStatusElement.innerHTML = '🔴 未连接';
+                connectionStatusElement.className = 'disconnected-indicator';
+                isConnected = false;
             }
+        }
 
-            // 2. 处理 Answer: 我发了 Offer，对方回了 Answer
-            if (otherSlot.answer && peerConnection && peerConnection.signalingState === 'have-local-offer') {
-                log('收到Answer，设置远程描述...');
-                await setRemoteAnswer(otherSlot.answer);
+        // WS信令处理函数
+        async function handleRemoteOffer(data) {
+            if (data.user_id === userId) return; // 忽略自己的
+            log('WS收到Offer，准备创建Answer...');
+            const answer = await createAnswer(data.offer);
+            if (answer) {
+                await sendAnswer(answer);
             }
+        }
 
-            // 3. 处理 ICE Candidates
-            if (otherSlot.ice_candidates && otherSlot.ice_candidates.length > 0) {
-                log(`收到 ${otherSlot.ice_candidates.length} 个ICE候选`);
-                for (const candidate of otherSlot.ice_candidates) {
-                    await addIceCandidate(candidate);
-                }
-                // 处理完后清除服务器上的候选，避免重复添加
-                await fetch('/apipy/api/room/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'clear-ice-candidates', user_id: userId })
-                });
+        async function handleRemoteAnswer(data) {
+            if (data.user_id === userId) return;
+            if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
+                log('WS收到Answer，设置远程描述...');
+                await setRemoteAnswer(data.answer);
+            }
+        }
+
+        async function handleRemoteCandidate(data) {
+            if (data.user_id === userId) return;
+            if (data.candidate) {
+                log('WS收到ICE Candidate');
+                await addIceCandidate(data.candidate);
             }
         }
 
@@ -655,14 +644,11 @@
                 hideError();
                 log(`尝试上麦 (点击了槽位 ${slotIndex})...`);
                 
-                // 禁用所有按钮防止重复点击
                 const buttons = document.querySelectorAll('button');
                 buttons.forEach(b => b.disabled = true);
                 
-                // 1. 获取本地媒体流
                 await startCall();
                 
-                // 2. 请求加入房间
                 const response = await fetch('/apipy/api/room/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -675,35 +661,22 @@
                     mySlotIndex = data.data.slot_index;
                     log(`上麦成功，分配到槽位: ${mySlotIndex}`);
                     
-                    // 立即获取最新房间状态
+                    // 刷新UI
                     await fetchRoomData();
 
-                    // 如果我是第一个人（或者无论如何），我可以尝试发起 Offer
-                    // 但为了避免冲突，通常约定：Slot 0 给 Slot 1 发 Offer，或者后加入的给先加入的发
-                    // 这里简化策略：只要加入，就检查是否有另一个人。
-                    // 实际上，WebRTC协商通常由一方发起。
-                    // 策略：如果是 Slot 0，主动发起 Offer？或者后加入者发起？
-                    // 为了简单：每个人加入后，如果发现对面有人，且自己没有收到Offer，就发起Offer。
-                    // 但 current implementation: 
-                    // processSignaling 会检查 otherSlot.offer。
-                    // 我们可以让后加入的人发起 Offer。
-                    
+                    // 策略：如果我是Slot 0，或者如果对面有人，我发起Offer
                     const room = data.data.room;
                     const otherSlotIndex = mySlotIndex === 0 ? 1 : 0;
                     const otherSlot = room.slots[otherSlotIndex];
                     
-                    // 如果对面有人，我发起 Offer
                     if (otherSlot) {
                         log('对面有人，发起Offer...');
                         const offer = await createOffer();
-                        if (offer) {
-                            await sendOffer(offer);
-                        }
+                        if (offer) await sendOffer(offer);
                     } else {
                         log('对面没人，等待对方加入...');
                     }
 
-                    // 显示音频可视化
                     audioVisualizerElement.style.display = 'block';
                     startAudioVisualization();
                 } else {
@@ -711,261 +684,176 @@
                 }
             } catch (err) {
                 console.error('上麦过程出错:', err);
-                
-                let errorMessage = '上麦失败';
-                if (err.message.includes('Requested device not found')) {
-                    errorMessage = '未找到麦克风';
-                } else if (err.message.includes('Permission denied')) {
-                    errorMessage = '麦克风权限被拒绝';
-                } else {
-                    errorMessage += ': ' + err.message;
-                }
-                showError(errorMessage);
-                
-                // 清理
+                showError('上麦失败: ' + err.message);
                 endCall();
             } finally {
-                // 恢复按钮
                 const buttons = document.querySelectorAll('button');
                 buttons.forEach(b => b.disabled = false);
             }
         }
-
+        
         // 下麦
-        async function handleLeave(localOnly = false) {
-            log('正在下麦...');
+        async function handleLeave() {
+            if (mySlotIndex === null) return;
             try {
-                endCall();
-                
-                if (!localOnly && userId) {
-                    await fetch('/apipy/api/room/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'leave', user_id: userId })
-                    });
-                }
-                
-                mySlotIndex = null;
-                if (!localOnly) {
-                    await fetchRoomData();
-                }
-
-                audioVisualizerElement.style.display = 'none';
-                remoteAudioVisualizerElement.style.display = 'none';
-                stopAudioVisualization();
-            } catch (err) {
-                console.error('下麦失败:', err);
-                showError('下麦失败: ' + err.message);
-            }
-        }
-
-        // 切换静音
-        function handleToggleMute() {
-            if (localStream) {
-                const audioTrack = localStream.getAudioTracks()[0];
-                if (audioTrack) {
-                    audioTrack.enabled = !audioTrack.enabled;
-                    isMuted = !audioTrack.enabled; // track.enabled=true means NOT muted
-                    log(`切换静音状态: ${isMuted ? '静音' : '开麦'}`);
-                    // 强制更新UI
-                    const slotElement = document.getElementById(`slot-${mySlotIndex}`);
-                    if (slotElement) {
-                         const statusSpan = slotElement.querySelector('.slot-status');
-                         statusSpan.textContent = `你 (${userId})` + (isMuted ? ' (已静音)' : '');
-                    }
-                }
-            }
-        }
-
-        // 开始通话 (获取媒体流 + 创建PC)
-        async function startCall() {
-            try {
-                log('开始获取本地媒体流...');
-                
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error('浏览器不支持WebRTC');
-                }
-                
-                const constraints = {
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    },
-                    video: false
-                };
-                
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
-                log('获取本地媒体流成功');
-                
-                peerConnection = createPeerConnection();
-                
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
+                log('正在下麦...');
+                await fetch('/apipy/api/room/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'leave', user_id: userId })
                 });
                 
+                endCall();
+                mySlotIndex = null;
+                audioVisualizerElement.style.display = 'none';
+                stopAudioVisualization();
+                await fetchRoomData();
+                log('下麦成功');
             } catch (err) {
-                log('获取媒体流失败', err);
-                throw err;
+                console.error('下麦失败:', err);
+                showError('下麦失败');
             }
         }
 
+        // 开始通话 (WebRTC setup)
+        async function startCall() {
+            log('开始WebRTC设置...');
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                createPeerConnection();
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            } catch (err) {
+                console.error('获取麦克风失败:', err);
+                throw new Error('无法获取麦克风权限');
+            }
+        }
+        
         // 结束通话
         function endCall() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
+            log('结束通话...');
             if (peerConnection) {
                 peerConnection.close();
                 peerConnection = null;
             }
-            if (remoteStream) {
-                remoteStream.getTracks().forEach(track => track.stop());
-                remoteStream = null;
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
             }
-            isConnected = false;
-            isMuted = false;
-            isSpeaking = false;
-            stopAudioVisualization();
-            remoteAudioElement.srcObject = null;
+            updateConnectionStatus('disconnected');
         }
 
         // 创建PeerConnection
         function createPeerConnection() {
-            log('创建 RTCPeerConnection...');
-            const pc = new RTCPeerConnection(iceServers);
+            log('创建PeerConnection...');
+            peerConnection = new RTCPeerConnection(iceServers);
 
-            pc.onicecandidate = (event) => {
+            peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    log('发现新的 ICE Candidate');
                     sendIceCandidate(event.candidate);
                 }
             };
 
-            pc.ontrack = (event) => {
-                log('收到远程 Track', event.streams);
-                if (event.streams && event.streams[0]) {
-                    remoteStream = event.streams[0];
-                    remoteAudioElement.srcObject = remoteStream;
-                    remoteAudioVisualizerElement.style.display = 'block';
-                    
-                    // 尝试播放
-                    remoteAudioElement.play().catch(e => {
-                        log('自动播放失败，可能需要用户交互', e);
-                    });
-                }
+            peerConnection.ontrack = (event) => {
+                log('收到远程流...');
+                remoteAudioElement.srcObject = event.streams[0];
+                remoteAudioElement.play().catch(e => console.error('播放远程音频失败:', e));
+                updateConnectionStatus('connected');
             };
 
-            pc.onconnectionstatechange = () => {
-                log(`连接状态变更: ${pc.connectionState}`);
-                if (pc.connectionState === 'connected') {
-                    isConnected = true;
-                    updateConnectionStatus();
-                } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                    isConnected = false;
-                    updateConnectionStatus();
+            peerConnection.onconnectionstatechange = () => {
+                log(`连接状态变化: ${peerConnection.connectionState}`);
+                if (peerConnection.connectionState === 'connected') {
+                    updateConnectionStatus('connected');
+                } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+                    updateConnectionStatus('disconnected');
                 }
             };
-            
-            pc.oniceconnectionstatechange = () => {
-                log(`ICE连接状态变更: ${pc.iceConnectionState}`);
-            }
-
-            return pc;
         }
 
-        // 创建offer
+        // 创建Offer
         async function createOffer() {
             if (!peerConnection) return null;
             try {
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
-                log('创建并设置本地Offer成功');
                 return offer;
             } catch (err) {
-                console.error('创建offer失败:', err);
+                console.error('创建Offer失败:', err);
                 return null;
+            }
+        }
+
+        // 创建Answer
+        async function createAnswer(offer) {
+            if (!localStream) {
+                // 如果是被叫方，可能还没上麦，需要先上麦(获取流)
+                // 这里假设被叫方已经上麦并在等待
+                // 如果还没上麦，应该先startCall? 
+                // 简化逻辑：只有双方都在麦上才能建立连接。
+                // 如果收到Offer但我没上麦，忽略?
+                if (mySlotIndex === null) {
+                    log('收到Offer但我没上麦，忽略');
+                    return null;
+                }
+                if (!peerConnection) startCall(); // 确保PC存在
+            }
+            
+            try {
+                if (!peerConnection) createPeerConnection();
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                return answer;
+            } catch (err) {
+                console.error('创建Answer失败:', err);
+                return null;
+            }
+        }
+        
+        // 设置远程Answer
+        async function setRemoteAnswer(answer) {
+            if (!peerConnection) return;
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (err) {
+                console.error('设置远程Answer失败:', err);
+            }
+        }
+        
+        // 添加ICE Candidate
+        async function addIceCandidate(candidate) {
+            if (!peerConnection) return;
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+                console.error('添加ICE Candidate失败:', err);
             }
         }
 
         // 发送offer
         async function sendOffer(offer) {
-            log('发送Offer到服务器...');
-            await fetch('/apipy/api/room/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'offer', user_id: userId, offer })
-            });
-        }
-
-        // 创建answer
-        async function createAnswer(offer) {
-            if (!peerConnection) {
-                // 如果此时没有PC（异常情况），尝试重新创建
-                log('警告: createAnswer时没有PC，重新创建...');
-                // 这里比较麻烦，因为需要MediaStream。通常startCall已经调用了。
-                // 如果没有localStream，无法建立连接
-                if (!localStream) {
-                    log('错误: 没有本地流，无法创建Answer');
-                    return null;
-                }
-                peerConnection = createPeerConnection();
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-            }
-            
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                log('创建并设置本地Answer成功');
-                return answer;
-            } catch (err) {
-                console.error('创建answer失败:', err);
-                return null;
+            log('通过WS发送Offer...');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'offer', user_id: userId, offer: offer }));
+            } else {
+                log('WS未连接，无法发送Offer');
             }
         }
 
         // 发送answer
         async function sendAnswer(answer) {
-            log('发送Answer到服务器...');
-            await fetch('/apipy/api/room/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'answer', user_id: userId, answer })
-            });
-        }
-
-        // 设置远程answer
-        async function setRemoteAnswer(answer) {
-            if (!peerConnection) return;
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                log('设置远程Answer成功');
-            } catch (err) {
-                console.error('设置远程answer失败:', err);
-            }
-        }
-
-        // 添加ICE candidate
-        async function addIceCandidate(candidate) {
-            if (!peerConnection) return;
-            try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                log('添加远程ICE Candidate成功');
-            } catch (err) {
-                console.error('添加ICE candidate失败:', err);
+            log('通过WS发送Answer...');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'answer', user_id: userId, answer: answer }));
             }
         }
 
         // 发送ICE candidate
         async function sendIceCandidate(candidate) {
-            // log('发送ICE Candidate到服务器...');
-            await fetch('/apipy/api/room/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'ice-candidate', user_id: userId, candidate: candidate.toJSON() })
-            });
+            // log('发送ICE Candidate...');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'ice-candidate', user_id: userId, candidate: candidate.toJSON() }));
+            }
         }
 
         // 显示错误

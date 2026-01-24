@@ -186,6 +186,15 @@ LOGGING = {
             'encoding': 'utf-8',
             'formatter': 'simple',
         },
+        'voice_handler': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'voice.log'),
+            'maxBytes': 1024 * 1024,  # 1MB
+            'backupCount': 5,
+            'encoding': 'utf-8',
+            'formatter': 'verbose',
+        },
     },
     'loggers': {
         'django': {
@@ -207,6 +216,11 @@ LOGGING = {
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': True,
+        },
+        'zapp.webrtc_service': {
+            'handlers': ['console', 'voice_handler'],
+            'level': 'DEBUG',
+            'propagate': False,
         },
     },
 }
