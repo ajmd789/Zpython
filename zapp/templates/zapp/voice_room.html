@@ -444,21 +444,49 @@
 
         // 开始轮询信令
         function startPolling() {
-            pollingInterval = setInterval(async () => {
-                await fetchRoomData();
-            }, 1000);
+            // 使用递归setTimeout替代setInterval，确保上一次请求完成后再发送下一次请求
+            const poll = async () => {
+                try {
+                    await fetchRoomData();
+                } catch (err) {
+                    console.error('轮询失败:', err);
+                } finally {
+                    // 上一次请求完成后，延迟1000毫秒再发送下一次请求
+                    setTimeout(poll, 1000);
+                }
+            };
+            poll();
         }
 
-        // 获取房间数据
+        // 获取房间数据，添加超时机制
         async function fetchRoomData() {
             try {
-                const response = await fetch('/apipy/api/room/');
+                // 设置请求超时时间为5秒
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch('/apipy/api/room/', {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 const room = data.data;
                 updateRoomUI(room);
                 await processSignaling(room);
+                
+                return true;
             } catch (err) {
-                console.error('获取房间数据失败:', err);
+                if (err.name === 'AbortError') {
+                    console.error('获取房间数据超时');
+                } else {
+                    console.error('获取房间数据失败:', err);
+                }
+                return false;
             }
         }
 
@@ -552,12 +580,24 @@
         async function handleJoin(slotIndex) {
             try {
                 hideError();
+                
+                // 显示加载状态
+                const slotElement = document.getElementById(`slot-${slotIndex}`);
+                const button = slotElement.querySelector('button');
+                const originalText = button.textContent;
+                button.textContent = '正在连接...';
+                button.disabled = true;
+                
+                // 确保 getUserMedia 是由用户交互触发的
+                // 这是移动端浏览器的安全要求
                 await startCall();
+                
                 const response = await fetch('/apipy/api/room/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'join', user_id: userId })
                 });
+                
                 const data = await response.json();
                 if (data.code === 200) {
                     mySlotIndex = data.data.slot_index;
@@ -565,15 +605,19 @@
 
                     // 如果是第一个用户，创建offer
                     setTimeout(async () => {
-                        const roomResponse = await fetch('/apipy/api/room/');
-                        const roomData = await roomResponse.json();
-                        const room = roomData.data;
-                        const otherSlotIndex = mySlotIndex === 0 ? 1 : 0;
-                        if (room.slots[otherSlotIndex]) {
-                            const offer = await createOffer();
-                            if (offer) {
-                                await sendOffer(offer);
+                        try {
+                            const roomResponse = await fetch('/apipy/api/room/');
+                            const roomData = await roomResponse.json();
+                            const room = roomData.data;
+                            const otherSlotIndex = mySlotIndex === 0 ? 1 : 0;
+                            if (room.slots[otherSlotIndex]) {
+                                const offer = await createOffer();
+                                if (offer) {
+                                    await sendOffer(offer);
+                                }
                             }
+                        } catch (offerErr) {
+                            console.error('创建offer失败:', offerErr);
                         }
                     }, 500);
 
@@ -582,7 +626,28 @@
                     startAudioVisualization();
                 }
             } catch (err) {
-                showError('上麦失败: ' + err.message);
+                // 更详细的上麦失败错误处理
+                let errorMessage = '上麦失败';
+                
+                if (err.message.includes('Requested device not found')) {
+                    errorMessage = '未找到可用的麦克风设备，请检查设备连接';
+                } else if (err.message.includes('Permission denied') || err.message.includes('NotAllowedError')) {
+                    errorMessage = '麦克风权限已被拒绝，请在浏览器设置中重新授予权限';
+                } else if (err.message.includes('NotReadableError')) {
+                    errorMessage = '麦克风被占用或无法访问，请关闭其他占用麦克风的应用';
+                } else {
+                    errorMessage += ': ' + err.message;
+                }
+                
+                showError(errorMessage);
+            } finally {
+                // 恢复按钮状态
+                const slotElement = document.getElementById(`slot-${slotIndex}`);
+                const button = slotElement.querySelector('button');
+                if (button) {
+                    button.textContent = '上麦';
+                    button.disabled = false;
+                }
             }
         }
 
@@ -624,14 +689,62 @@
         async function startCall() {
             try {
                 hideError();
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                
+                // 检查浏览器是否支持 getUserMedia
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('浏览器不支持麦克风访问功能');
+                }
+                
+                // 检查设备权限状态
+                const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+                if (permissionStatus.state === 'denied') {
+                    throw new Error('麦克风权限已被拒绝，请在浏览器设置中重新授予权限');
+                }
+                
+                // 优化的 getUserMedia 配置，提高兼容性
+                const constraints = {
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        // 不指定 exact: true，允许浏览器选择可用设备
+                        deviceId: { ideal: true }
+                    },
+                    video: false
+                };
+                
+                // 使用 try-catch 捕获 getUserMedia 错误
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (initialError) {
+                    // 如果首次调用失败，尝试更宽松的配置
+                    console.warn('首次获取麦克风失败，尝试更宽松的配置:', initialError);
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                }
+                
                 localStream = stream;
                 peerConnection = createPeerConnection();
                 stream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, stream);
                 });
             } catch (err) {
-                showError('无法访问麦克风: ' + err.message);
+                // 更详细的错误处理
+                let errorMessage = '无法访问麦克风';
+                
+                if (err.name === 'NotFoundError' || err.message.includes('Requested device not found')) {
+                    errorMessage = '未找到可用的麦克风设备，请检查设备连接';
+                } else if (err.name === 'NotAllowedError' || err.message.includes('Permission denied')) {
+                    errorMessage = '麦克风权限已被拒绝，请在浏览器设置中重新授予权限';
+                } else if (err.name === 'NotReadableError') {
+                    errorMessage = '麦克风被占用或无法访问，请关闭其他占用麦克风的应用';
+                } else if (err.name === 'SecurityError') {
+                    errorMessage = '麦克风访问被安全策略阻止';
+                } else {
+                    errorMessage += ': ' + err.message;
+                }
+                
+                showError(errorMessage);
                 throw err;
             }
         }
