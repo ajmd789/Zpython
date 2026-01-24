@@ -499,16 +499,16 @@
                 const slotElement = document.getElementById(`slot-${index}`);
                 if (slot) {
                     slotElement.classList.add('occupied');
-                    if (slot.userId === userId) {
+                    if (slot.user_id === userId) {
                         slotElement.classList.add('current-user');
-                        slotElement.querySelector('.slot-status').textContent = `你 (${slot.userId})`;
+                        slotElement.querySelector('.slot-status').textContent = `你 (${slot.user_id})`;
                         updateSlotActions(slotElement, index, true);
                     } else {
                         slotElement.classList.remove('current-user');
-                        slotElement.querySelector('.slot-status').textContent = slot.userId;
+                        slotElement.querySelector('.slot-status').textContent = slot.user_id;
                         updateSlotActions(slotElement, index, false);
                     }
-                    if (slot.userId === userId) {
+                    if (slot.user_id === userId) {
                         slotElement.querySelector('.slot-status').textContent += isMuted ? ' (已静音)' : '';
                     }
                 } else {
@@ -556,8 +556,8 @@
             if (!otherSlot) return;
 
             // 处理收到的offer
-            if (otherSlot.offer && !processedOffers.has(otherSlot.userId)) {
-                processedOffers.add(otherSlot.userId);
+            if (otherSlot.offer && !processedOffers.has(otherSlot.user_id)) {
+                processedOffers.add(otherSlot.user_id);
                 const answer = await createAnswer(otherSlot.offer);
                 if (answer) {
                     await sendAnswer(answer);
@@ -565,13 +565,13 @@
             }
 
             // 处理收到的answer
-            if (otherSlot.answer && !processedAnswers.has(otherSlot.userId)) {
-                processedAnswers.add(otherSlot.userId);
+            if (otherSlot.answer && !processedAnswers.has(otherSlot.user_id)) {
+                processedAnswers.add(otherSlot.user_id);
                 await setRemoteAnswer(otherSlot.answer);
             }
 
             // 处理ICE candidates
-            for (const candidate of otherSlot.iceCandidates) {
+            for (const candidate of otherSlot.ice_candidates) {
                 await addIceCandidate(candidate);
             }
         }
