@@ -687,13 +687,23 @@
             
             // 检查浏览器是否支持 getUserMedia
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error('浏览器不支持麦克风访问功能');
+                // 如果浏览器不支持 getUserMedia，仍然创建 PeerConnection
+                peerConnection = createPeerConnection();
+                return;
             }
             
             // 检查设备权限状态
-            const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
-            if (permissionStatus.state === 'denied') {
-                throw new Error('麦克风权限已被拒绝，请在浏览器设置中重新授予权限');
+            let permissionStatus;
+            try {
+                permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+            } catch (e) {
+                // 某些浏览器可能不支持 permissions.query，直接尝试获取麦克风
+            }
+            
+            if (permissionStatus && permissionStatus.state === 'denied') {
+                // 权限被拒绝，仍然创建 PeerConnection
+                peerConnection = createPeerConnection();
+                return;
             }
             
             // 优化的 getUserMedia 配置，提高兼容性
@@ -719,12 +729,14 @@
                     // 尝试更宽松的配置
                     stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 } catch (finalError) {
-                    // 如果再次失败，抛出最终错误
+                    // 如果再次失败，只记录错误，不抛出，继续创建 PeerConnection
                     console.error('获取麦克风失败:', finalError);
-                    throw finalError;
+                    peerConnection = createPeerConnection();
+                    return;
                 }
             }
             
+            // 如果成功获取到麦克风，创建 PeerConnection 并添加轨道
             localStream = stream;
             peerConnection = createPeerConnection();
             stream.getTracks().forEach(track => {
