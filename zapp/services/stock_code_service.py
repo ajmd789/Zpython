@@ -55,7 +55,8 @@ class StockCodeService:
                 conn.commit()
         except sqlite3.Error as e:
             logger.error(f"Database table creation error: {str(e)}")
-            raise Exception("Database operation failed. Please try again later.")
+            # 不抛出异常，仅记录日志，允许服务继续运行
+            logger.warning("Stock code service may not function correctly due to database issues")
     
     def _initialize_codes(self):
         """从a.txt文件导入股票代码到数据库"""

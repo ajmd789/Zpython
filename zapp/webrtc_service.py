@@ -28,8 +28,16 @@ class WebRTCRoomManager:
             return room_id
     
     def get_room(self, room_id):
-        """获取房间信息"""
+        """获取房间信息，如果房间不存在则创建"""
         with self.lock:
+            if room_id not in self.rooms:
+                # 创建默认房间
+                self.rooms[room_id] = {
+                    'slots': [None, None],
+                    'created_at': time.time(),
+                    'max_capacity': 2
+                }
+                logger.info(f"Created default room {room_id} with capacity 2")
             return self.rooms.get(room_id)
     
     def generate_user_id(self):
