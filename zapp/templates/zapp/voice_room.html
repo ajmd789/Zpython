@@ -582,15 +582,17 @@
 
         // 上麦
         async function handleJoin(slotIndex) {
+            // 显示加载状态
+            const slotElement = document.getElementById(`slot-${slotIndex}`);
+            const button = slotElement.querySelector('button');
+            if (!button) return;
+            
+            const originalText = button.textContent;
+            button.textContent = '正在连接...';
+            button.disabled = true;
+            
             try {
                 hideError();
-                
-                // 显示加载状态
-                const slotElement = document.getElementById(`slot-${slotIndex}`);
-                const button = slotElement.querySelector('button');
-                const originalText = button.textContent;
-                button.textContent = '正在连接...';
-                button.disabled = true;
                 
                 // 确保 getUserMedia 是由用户交互触发的
                 // 这是移动端浏览器的安全要求
@@ -628,17 +630,20 @@
                     errorMessage = '麦克风权限已被拒绝，请在浏览器设置中重新授予权限';
                 } else if (err.message.includes('NotReadableError')) {
                     errorMessage = '麦克风被占用或无法访问，请关闭其他占用麦克风的应用';
+                } else if (err.message.includes('浏览器不支持')) {
+                    errorMessage = err.message;
                 } else {
                     errorMessage += ': ' + err.message;
                 }
                 
                 showError(errorMessage);
+                console.error('上麦失败:', err);
             } finally {
                 // 恢复按钮状态
                 const slotElement = document.getElementById(`slot-${slotIndex}`);
                 const button = slotElement.querySelector('button');
                 if (button) {
-                    button.textContent = '上麦';
+                    button.textContent = originalText;
                     button.disabled = false;
                 }
             }
@@ -678,66 +683,53 @@
 
         // 开始通话
         async function startCall() {
-            try {
-                hideError();
-                
-                // 检查浏览器是否支持 getUserMedia
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    throw new Error('浏览器不支持麦克风访问功能');
-                }
-                
-                // 检查设备权限状态
-                const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
-                if (permissionStatus.state === 'denied') {
-                    throw new Error('麦克风权限已被拒绝，请在浏览器设置中重新授予权限');
-                }
-                
-                // 优化的 getUserMedia 配置，提高兼容性
-                const constraints = {
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                        // 不指定 exact: true，允许浏览器选择可用设备
-                        deviceId: { ideal: true }
-                    },
-                    video: false
-                };
-                
-                // 使用 try-catch 捕获 getUserMedia 错误
-                let stream;
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
-                } catch (initialError) {
-                    // 如果首次调用失败，尝试更宽松的配置
-                    console.warn('首次获取麦克风失败，尝试更宽松的配置:', initialError);
-                    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                }
-                
-                localStream = stream;
-                peerConnection = createPeerConnection();
-                stream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, stream);
-                });
-            } catch (err) {
-                // 更详细的错误处理
-                let errorMessage = '无法访问麦克风';
-                
-                if (err.name === 'NotFoundError' || err.message.includes('Requested device not found')) {
-                    errorMessage = '未找到可用的麦克风设备，请检查设备连接';
-                } else if (err.name === 'NotAllowedError' || err.message.includes('Permission denied')) {
-                    errorMessage = '麦克风权限已被拒绝，请在浏览器设置中重新授予权限';
-                } else if (err.name === 'NotReadableError') {
-                    errorMessage = '麦克风被占用或无法访问，请关闭其他占用麦克风的应用';
-                } else if (err.name === 'SecurityError') {
-                    errorMessage = '麦克风访问被安全策略阻止';
-                } else {
-                    errorMessage += ': ' + err.message;
-                }
-                
-                showError(errorMessage);
-                throw err;
+            hideError();
+            
+            // 检查浏览器是否支持 getUserMedia
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('浏览器不支持麦克风访问功能');
             }
+            
+            // 检查设备权限状态
+            const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+            if (permissionStatus.state === 'denied') {
+                throw new Error('麦克风权限已被拒绝，请在浏览器设置中重新授予权限');
+            }
+            
+            // 优化的 getUserMedia 配置，提高兼容性
+            const constraints = {
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    // 不指定 exact: true，允许浏览器选择可用设备
+                    deviceId: { ideal: true }
+                },
+                video: false
+            };
+            
+            // 使用 try-catch 捕获 getUserMedia 错误
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (initialError) {
+                // 如果首次调用失败，尝试更宽松的配置
+                console.warn('首次获取麦克风失败，尝试更宽松的配置:', initialError);
+                try {
+                    // 尝试更宽松的配置
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                } catch (finalError) {
+                    // 如果再次失败，抛出最终错误
+                    console.error('获取麦克风失败:', finalError);
+                    throw finalError;
+                }
+            }
+            
+            localStream = stream;
+            peerConnection = createPeerConnection();
+            stream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, stream);
+            });
         }
 
         // 结束通话
