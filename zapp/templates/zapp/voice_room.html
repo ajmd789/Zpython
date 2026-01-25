@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语音连麦房间</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .header-info {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .container {
+            flex: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            width: 100%;
+        }
+
+        .user-id-section {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .user-id-label {
+            display: block;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-bottom: 0.5rem;
+        }
+
+        .user-id {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2c3e50;
+            background-color: #ecf0f1;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            display: inline-block;
+        }
+
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            text-align: center;
+            border: 1px solid #ef5350;
+        }
+
+        .mic-slots {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .mic-slot {
+            background-color: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .mic-slot.occupied {
+            border-color: #3498db;
+        }
+
+        .mic-slot.current-user {
+            border-color: #27ae60;
+            box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.2);
+        }
+
+        .mic-slot.speaking {
+            border-color: #f39c12;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .slot-number {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #3498db;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .mic-slot.occupied .slot-number {
+            background-color: #2980b9;
+        }
+
+        .mic-slot.current-user .slot-number {
+            background-color: #27ae60;
+        }
+
+        .mic-slot.speaking .slot-number {
+            background-color: #f39c12;
+        }
+
+        .slot-status {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+            margin-top: 0.5rem;
+        }
+
+        .slot-actions {
+            margin-top: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #2980b9;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b;
+        }
+
+        .btn-secondary {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        .btn-success {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #229954;
+        }
+
+        .btn-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #e67e22;
+        }
+
+        .audio-visualizer {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .visualizer-title {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-bottom: 1rem;
+        }
+
+        .visualizer-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            height: 80px;
+        }
+
+        .bar {
+            width: 4px;
+            background-color: #3498db;
+            border-radius: 2px;
+            transition: height 0.1s ease;
+        }
+
+        footer {
+            background-color: white;
+            border-top: 1px solid #e0e0e0;
+            padding: 1rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+
+        .muted-indicator {
+            color: #e74c3c;
+            font-weight: bold;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .connected-indicator {
+            color: #27ae60;
+            font-weight: bold;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .disconnected-indicator {
+            color: #e74c3c;
+            font-weight: bold;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>语音连麦房间</h1>
+        <div class="header-info">
+            <div class="info-item">
+                <span>👥</span>
+                <span id="online-count">0/2 在线</span>
+            </div>
+            <div class="info-item">
+                <span id="connection-status">🔴 未连接</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="user-id-section">
+            <span class="user-id-label">你的ID</span>
+            <span class="user-id" id="user-id">---</span>
+        </div>
+
+        <div id="error-message" class="error-message" style="display: none;"></div>
+
+        <div class="mic-slots">
+            <div class="mic-slot" id="slot-0">
+                <div class="slot-number">1</div>
+                <div class="slot-status">空闲</div>
+                <div class="slot-actions">
+                    <button class="btn-primary" onclick="handleJoin(0)">上麦</button>
+                </div>
+            </div>
+
+            <div class="mic-slot" id="slot-1">
+                <div class="slot-number">2</div>
+                <div class="slot-status">空闲</div>
+                <div class="slot-actions">
+                    <button class="btn-primary" onclick="handleJoin(1)">上麦</button>
+                </div>
+            </div>
+        </div> 
+
+        <div id="audio-visualizer" class="audio-visualizer" style="display: none;">
+            <div class="visualizer-title">本地音频</div>
+            <div class="visualizer-container" id="visualizer-container"></div>
+        </div>
+
+        <div id="remote-audio-visualizer" class="audio-visualizer" style="display: none;">
+            <div class="visualizer-title">远程音频</div>
+            <div class="visualizer-container" id="remote-visualizer-container"></div>
+        </div>
+    </div>
+
+    <footer>
+        WebRTC 语音通话 • 端到端加密 • 低延迟传输
+    </footer>
+
+    <audio id="remote-audio" autoplay playsinline style="display: none;"></audio>
+
+    <script>
+        // DOM 元素
+        const userIdElement = document.getElementById('user-id');
+        const onlineCountElement = document.getElementById('online-count');
+        const connectionStatusElement = document.getElementById('connection-status');
+        const errorMessageElement = document.getElementById('error-message');
+        const audioVisualizerElement = document.getElementById('audio-visualizer');
+        const visualizerContainer = document.getElementById('visualizer-container');
+        const remoteAudioVisualizerElement = document.getElementById('remote-audio-visualizer');
+        const remoteVisualizerContainer = document.getElementById('remote-visualizer-container');
+        const remoteAudioElement = document.getElementById('remote-audio');
+
+        // WebRTC相关状态
+        let userId = null;
+        let mySlotIndex = null;
+        let isMuted = false;
+        let isSpeaking = false;
+        let localStream = null;
+        let remoteStream = null;
+        let isConnected = false;
+        let peerConnection = null;
+        let pollingInterval = null;
+        let heartbeatInterval = null; // 心跳定时器
+        let animationFrameId = null;
+        let ws = null; // WebSocket connection
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        
+        // STUN服务器配置 - 使用自建服务
+        // 部署域名: haoguozhi.com
+        const stunHost = 'haoguozhi.com'; 
+        const iceServers = {
+            iceServers: [
+                { urls: `stun:${stunHost}:3478` }
+            ]
+        };
+
+        log(`STUN配置: stun:${stunHost}:3478 (生产环境域名)`);
+
+        // 日志函数
+        function log(...args) {
+            console.log(`[${new Date().toLocaleTimeString()}]`, ...args);
+        }
+
+        // 初始化
+        async function init() {
+            log('正在初始化...');
+            
+            // 生成或获取用户ID
+            userId = localStorage.getItem('voice-room-user-id');
+            if (!userId) {
+                await generateUserId();
+            } else {
+                userIdElement.textContent = userId;
+                log('使用现有用户ID:', userId);
+            }
+
+            // 连接WebSocket
+            connectWebSocket();
+
+            // 创建音频可视化条
+            createVisualizerBars();
+
+            // 开始轮询信令 (仅用于房间状态，不用于WebRTC信令)
+            startPolling();
+            
+            // 开始心跳
+            startHeartbeat();
+        }
+
+        // 生成用户ID
+        async function generateUserId() {
+            userId = 'user_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('voice-room-user-id', userId);
+            userIdElement.textContent = userId;
+            log('生成新用户ID:', userId);
+        }
+
+        // 连接WebSocket
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/voice/main-room/`;
+            log(`连接WebSocket: ${wsUrl}`);
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                log('WebSocket连接成功');
+                // 发送简单的加入消息（可选）
+                ws.send(JSON.stringify({ action: 'hello', user_id: userId }));
+            };
+            
+            ws.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+                // log('收到WS消息:', data.action);
+                
+                if (data.action === 'offer') {
+                    await handleRemoteOffer(data);
+                } else if (data.action === 'answer') {
+                    await handleRemoteAnswer(data);
+                } else if (data.action === 'ice-candidate') {
+                    await handleRemoteCandidate(data);
+                }
+            };
+            
+            ws.onclose = () => {
+                log('WebSocket断开，3秒后重连...');
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = (err) => {
+                console.error('WebSocket错误:', err);
+            };
+        }
+
+        // 创建可视化条
+        function createVisualizerBars() {
+            visualizerContainer.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                visualizerContainer.appendChild(bar);
+            }
+        }
+
+        // 开始轮询信令
+        function startPolling() {
+            const poll = async () => {
+                try {
+                    await fetchRoomData();
+                } catch (err) {
+                    console.error('轮询失败:', err);
+                } finally {
+                    pollingInterval = setTimeout(poll, 1000);
+                }
+            };
+            poll();
+        }
+        
+        // 开始心跳
+        function startHeartbeat() {
+            heartbeatInterval = setInterval(() => {
+                if (userId) {
+                     fetch('/apipy/api/room/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'heartbeat', user_id: userId })
+                    }).catch(err => console.error('心跳发送失败', err));
+                }
+            }, 3000);
+        }
+
+        // 获取房间数据
+        async function fetchRoomData() {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch('/apipy/api/room/', {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) throw new Error(`HTTP error! ${response.status}`);
+                
+                const data = await response.json();
+                updateRoomUI(data.data);
+                return true;
+            } catch (err) {
+                if (err.name !== 'AbortError') console.error('获取房间数据失败:', err);
+                return false;
+            }
+        }
+
+        // 更新房间UI
+        function updateRoomUI(data) {
+            if (!data) return;
+            // 兼容直接返回room对象或嵌套在room字段中的情况
+            const room = data.room || (data.slots ? data : null);
+            
+            if (!room) return;
+            
+            // 更新在线人数
+            onlineCountElement.textContent = `${room.online_count}/2 在线`;
+            
+            // 更新槽位状态
+            room.slots.forEach((slot, index) => {
+                const slotElement = document.getElementById(`slot-${index}`);
+                const statusElement = slotElement.querySelector('.slot-status');
+                const actionButton = slotElement.querySelector('button');
+                
+                if (slot) {
+                    slotElement.classList.add('occupied');
+                    statusElement.textContent = `占用: ${slot.user_id}`;
+                    if (slot.user_id === userId) {
+                        slotElement.classList.add('current-user');
+                        mySlotIndex = index;
+                    } else {
+                        slotElement.classList.remove('current-user');
+                    }
+                } else {
+                    slotElement.classList.remove('occupied', 'current-user');
+                    statusElement.textContent = '空闲';
+                }
+                
+                updateSlotActions(index, slot);
+            });
+        }
+
+        // 更新槽位操作按钮
+        function updateSlotActions(index, slot) {
+            const slotElement = document.getElementById(`slot-${index}`);
+            const actionButton = slotElement.querySelector('button');
+            
+            // 重置按钮
+            actionButton.onclick = null;
+            actionButton.className = '';
+            
+            if (mySlotIndex === null) {
+                // 我未上麦
+                if (!slot) {
+                    // 空闲槽位 -> 可上麦
+                    actionButton.textContent = '上麦';
+                    actionButton.className = 'btn-primary';
+                    actionButton.onclick = () => handleJoin(index);
+                    actionButton.disabled = false;
+                } else {
+                    // 被占用 -> 不可操作
+                    actionButton.textContent = '已占用';
+                    actionButton.className = 'btn-secondary';
+                    actionButton.disabled = true;
+                }
+            } else {
+                // 我已上麦
+                if (index === mySlotIndex) {
+                    // 我的槽位 -> 下麦
+                    actionButton.textContent = '下麦';
+                    actionButton.className = 'btn-danger';
+                    actionButton.onclick = () => handleLeave();
+                    actionButton.disabled = false;
+                } else {
+                    // 其他槽位 -> 不可操作
+                    actionButton.textContent = slot ? '已占用' : '空闲';
+                    actionButton.className = 'btn-secondary';
+                    actionButton.disabled = true;
+                }
+            }
+        }
+
+        // 更新连接状态UI
+        function updateConnectionStatus(status) {
+            if (status === 'connected') {
+                connectionStatusElement.innerHTML = '🟢 已连接';
+                connectionStatusElement.className = 'connected-indicator';
+                isConnected = true;
+            } else {
+                connectionStatusElement.innerHTML = '🔴 未连接';
+                connectionStatusElement.className = 'disconnected-indicator';
+                isConnected = false;
+            }
+        }
+
+        // WS信令处理函数
+        async function handleRemoteOffer(data) {
+            if (data.user_id === userId) return; // 忽略自己的
+            log('WS收到Offer，准备创建Answer...');
+            const answer = await createAnswer(data.offer);
+            if (answer) {
+                await sendAnswer(answer);
+            }
+        }
+
+        async function handleRemoteAnswer(data) {
+            if (data.user_id === userId) return;
+            if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
+                log('WS收到Answer，设置远程描述...');
+                await setRemoteAnswer(data.answer);
+            }
+        }
+
+        async function handleRemoteCandidate(data) {
+            if (data.user_id === userId) return;
+            if (data.candidate) {
+                log('WS收到ICE Candidate');
+                await addIceCandidate(data.candidate);
+            }
+        }
+
+        // 上麦
+        async function handleJoin(slotIndex) {
+            try {
+                hideError();
+                log(`尝试上麦 (点击了槽位 ${slotIndex})...`);
+                
+                const buttons = document.querySelectorAll('button');
+                buttons.forEach(b => b.disabled = true);
+                
+                await startCall();
+                
+                const response = await fetch('/apipy/api/room/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'join', user_id: userId })
+                });
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    mySlotIndex = data.data.slot_index;
+                    log(`上麦成功，分配到槽位: ${mySlotIndex}`);
+                    
+                    // 刷新UI
+                    await fetchRoomData();
+
+                    // 策略：如果我是Slot 0，或者如果对面有人，我发起Offer
+                    const room = data.data.room;
+                    const otherSlotIndex = mySlotIndex === 0 ? 1 : 0;
+                    const otherSlot = room.slots[otherSlotIndex];
+                    
+                    if (otherSlot) {
+                        log('对面有人，发起Offer...');
+                        const offer = await createOffer();
+                        if (offer) await sendOffer(offer);
+                    } else {
+                        log('对面没人，等待对方加入...');
+                    }
+
+                    audioVisualizerElement.style.display = 'block';
+                    startAudioVisualization();
+                } else {
+                    throw new Error(data.message || '上麦失败');
+                }
+            } catch (err) {
+                console.error('上麦过程出错:', err);
+                showError('上麦失败: ' + err.message);
+                endCall();
+            } finally {
+                const buttons = document.querySelectorAll('button');
+                buttons.forEach(b => b.disabled = false);
+            }
+        }
+        
+        // 下麦
+        async function handleLeave() {
+            if (mySlotIndex === null) return;
+            try {
+                log('正在下麦...');
+                await fetch('/apipy/api/room/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'leave', user_id: userId })
+                });
+                
+                endCall();
+                mySlotIndex = null;
+                audioVisualizerElement.style.display = 'none';
+                stopAudioVisualization();
+                await fetchRoomData();
+                log('下麦成功');
+            } catch (err) {
+                console.error('下麦失败:', err);
+                showError('下麦失败');
+            }
+        }
+
+        // 开始通话 (WebRTC setup)
+        async function startCall() {
+            log('开始WebRTC设置...');
+            
+            // 检查安全上下文
+            if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                const msg = '错误：浏览器限制麦克风只能在 HTTPS 或 localhost 环境下使用。当前为 HTTP 环境，无法上麦。';
+                console.error(msg);
+                showError(msg);
+                throw new Error(msg);
+            }
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                createPeerConnection();
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            } catch (err) {
+                console.error('获取麦克风失败:', err);
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    throw new Error('麦克风权限被拒绝，请允许浏览器访问麦克风');
+                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    throw new Error('未检测到麦克风设备');
+                } else {
+                    throw new Error('无法获取麦克风权限: ' + err.message);
+                }
+            }
+        }
+        
+        // 结束通话
+        function endCall() {
+            log('结束通话...');
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            updateConnectionStatus('disconnected');
+        }
+
+        // 创建PeerConnection
+        function createPeerConnection() {
+            log('创建PeerConnection...');
+            peerConnection = new RTCPeerConnection(iceServers);
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    const type = event.candidate.type;
+                    const address = event.candidate.address || event.candidate.ip;
+                    log(`收集到ICE Candidate: [${type}] ${address}:${event.candidate.port} protocol:${event.candidate.protocol}`);
+                    
+                    if (type === 'srflx') {
+                        log('✅ 成功获取到 STUN 反射地址 (srflx)，自建STUN服务工作正常！');
+                    }
+                    
+                    sendIceCandidate(event.candidate);
+                } else {
+                    log('ICE Candidate 收集完成');
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                log(`ICE连接状态变化: ${peerConnection.iceConnectionState}`);
+                if (peerConnection.iceConnectionState === 'failed') {
+                    log('❌ ICE连接失败，可能是NAT穿透失败或防火墙阻挡');
+                }
+            };
+
+            peerConnection.ontrack = (event) => {
+                log('收到远程流...');
+                remoteAudioElement.srcObject = event.streams[0];
+                remoteAudioElement.play().catch(e => console.error('播放远程音频失败:', e));
+                updateConnectionStatus('connected');
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                log(`连接状态变化: ${peerConnection.connectionState}`);
+                if (peerConnection.connectionState === 'connected') {
+                    updateConnectionStatus('connected');
+                } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
+                    updateConnectionStatus('disconnected');
+                }
+            };
+        }
+
+        // 创建Offer
+        async function createOffer() {
+            if (!peerConnection) return null;
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                return offer;
+            } catch (err) {
+                console.error('创建Offer失败:', err);
+                return null;
+            }
+        }
+
+        // 创建Answer
+        async function createAnswer(offer) {
+            if (!localStream) {
+                // 如果是被叫方，可能还没上麦，需要先上麦(获取流)
+                // 这里假设被叫方已经上麦并在等待
+                // 如果还没上麦，应该先startCall? 
+                // 简化逻辑：只有双方都在麦上才能建立连接。
+                // 如果收到Offer但我没上麦，忽略?
+                if (mySlotIndex === null) {
+                    log('收到Offer但我没上麦，忽略');
+                    return null;
+                }
+                
+                // 尝试自动重新开始通话（例如页面刷新后）
+                if (!peerConnection) {
+                    log('检测到在麦上但无连接，尝试自动恢复...');
+                    try {
+                        await startCall();
+                    } catch (e) {
+                        console.error('自动恢复通话失败:', e);
+                        return null;
+                    }
+                }
+            }
+            
+            try {
+                if (!peerConnection) createPeerConnection();
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                return answer;
+            } catch (err) {
+                console.error('创建Answer失败:', err);
+                return null;
+            }
+        }
+        
+        // 设置远程Answer
+        async function setRemoteAnswer(answer) {
+            if (!peerConnection) return;
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (err) {
+                console.error('设置远程Answer失败:', err);
+            }
+        }
+        
+        // 添加ICE Candidate
+        async function addIceCandidate(candidate) {
+            if (!peerConnection) return;
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+                console.error('添加ICE Candidate失败:', err);
+            }
+        }
+
+        // 发送offer
+        async function sendOffer(offer) {
+            log('通过WS发送Offer...');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'offer', user_id: userId, offer: offer }));
+            } else {
+                log('WS未连接，无法发送Offer');
+            }
+        }
+
+        // 发送answer
+        async function sendAnswer(answer) {
+            log('通过WS发送Answer...');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'answer', user_id: userId, answer: answer }));
+            }
+        }
+
+        // 发送ICE candidate
+        async function sendIceCandidate(candidate) {
+            // log('发送ICE Candidate...');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ action: 'ice-candidate', user_id: userId, candidate: candidate.toJSON() }));
+            }
+        }
+
+        // 显示错误
+        function showError(message) {
+            errorMessageElement.textContent = message;
+            errorMessageElement.style.display = 'block';
+        }
+
+        // 隐藏错误
+        function hideError() {
+            errorMessageElement.style.display = 'none';
+        }
+
+        // 开始音频可视化
+        function startAudioVisualization() {
+            if (!localStream) return;
+
+            try {
+                // 防止重复创建
+                if (audioContext) {
+                    audioContext.close();
+                }
+                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(localStream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                visualizeAudio();
+            } catch (err) {
+                console.error('创建音频可视化失败:', err);
+            }
+        }
+
+        // 可视化音频
+        function visualizeAudio() {
+            if (!analyser || !dataArray) return;
+
+            analyser.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+            
+            // 检测是否在说话
+            const wasSpeaking = isSpeaking;
+            isSpeaking = average > 20;
+
+            if (mySlotIndex !== null) {
+                const slotElement = document.getElementById(`slot-${mySlotIndex}`);
+                if (slotElement) {
+                    if (isSpeaking) {
+                        slotElement.classList.add('speaking');
+                        // 发送说话事件（可选，用于UI同步）
+                         if (!wasSpeaking && userId) {
+                            fetch('/apipy/api/room/', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'update-spoke-time', user_id: userId })
+                            }).catch(err => {});
+                        }
+                    } else {
+                        slotElement.classList.remove('speaking');
+                    }
+                }
+            }
+
+            // 本地可视化
+            const bars = visualizerContainer.querySelectorAll('.bar');
+            bars.forEach((bar, index) => {
+                const value = dataArray[index] || 0;
+                const height = (value / 255) * 80;
+                bar.style.height = height + 'px';
+            });
+
+            animationFrameId = requestAnimationFrame(visualizeAudio);
+        }
+
+        // 停止音频可视化
+        function stopAudioVisualization() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            analyser = null;
+            dataArray = null;
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', init);
+
+        // 页面关闭时清理
+        window.addEventListener('beforeunload', () => {
+            if (pollingInterval) clearTimeout(pollingInterval);
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            endCall();
+        });
+    </script>
+</body>
+</html>

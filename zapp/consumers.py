@@ -1,5 +1,8 @@
 import json
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
+
+logger = logging.getLogger('zapp.webrtc_service')
 
 class ChatConsumer(AsyncWebsocketConsumer):
     # 连接建立时调用
@@ -46,3 +49,63 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'message': message
         }))
+
+class VoiceConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        try:
+            self.room_id = self.scope['url_route']['kwargs'].get('room_id', 'main-room')
+            self.room_group_name = f'voice_{self.room_id}'
+            self.user_id = None
+            
+            logger.info(f"WebSocket connecting: {self.channel_name} to {self.room_group_name}")
+
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+            await self.accept()
+            logger.info(f"WebSocket connected: {self.channel_name}")
+        except Exception as e:
+            logger.error(f"WebSocket connection failed: {e}", exc_info=True)
+            await self.close()
+
+    async def disconnect(self, close_code):
+        try:
+            logger.info(f"WebSocket disconnected: {self.channel_name} from {self.room_group_name}")
+            await self.channel_layer.group_discard(
+                self.room_group_name,
+                self.channel_name
+            )
+        except Exception as e:
+            logger.error(f"WebSocket disconnect error: {e}", exc_info=True)
+
+    async def receive(self, text_data=None, bytes_data=None):
+        if text_data:
+            try:
+                data = json.loads(text_data)
+                action = data.get('action')
+                self.user_id = data.get('user_id')
+                
+                logger.debug(f"Received WS message: {action} from {self.user_id}")
+                
+                # 转发信令给房间内其他人
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'voice_signal',
+                        'sender_channel_name': self.channel_name,
+                        'data': data
+                    }
+                )
+            except json.JSONDecodeError:
+                logger.error("Invalid JSON received")
+            except Exception as e:
+                logger.error(f"WebSocket receive error: {e}", exc_info=True)
+        
+    async def voice_signal(self, event):
+        try:
+            # 不发给自己
+            if self.channel_name != event['sender_channel_name']:
+                await self.send(text_data=json.dumps(event['data']))
+        except Exception as e:
+            logger.error(f"WebSocket send error: {e}", exc_info=True)

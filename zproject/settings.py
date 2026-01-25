@@ -27,6 +27,15 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'haoguozhi.com','www.haoguozhi.com']
 
+# 代理配置
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 安全相关配置
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
 
 # Application definition
 
@@ -138,3 +147,80 @@ CHANNEL_LAYERS = {
 }
 
 ASSETS_DIR = Path(os.getenv("ASSETS_DIR", BASE_DIR / "assets"))
+
+# 日志配置
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+        'simple': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'maxBytes': 256 * 1024,  # 256KB
+            'backupCount': 5,
+            'encoding': 'utf-8',
+            'formatter': 'simple',
+        },
+        'download_handler': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'download.log'),
+            'maxBytes': 256 * 1024,  # 256KB
+            'backupCount': 5,
+            'encoding': 'utf-8',
+            'formatter': 'simple',
+        },
+        'voice_handler': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'voice.log'),
+            'maxBytes': 1024 * 1024,  # 1MB
+            'backupCount': 5,
+            'encoding': 'utf-8',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'zapp': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'zapp.views': {
+            'handlers': ['console', 'file', 'download_handler'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'zapp.services': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'zapp.webrtc_service': {
+            'handlers': ['console', 'voice_handler'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}

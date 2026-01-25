@@ -1,142 +1,106 @@
-# ZPython Memo Application
+# Zpython 项目文档
 
-A modern memo management application built with Django, featuring server-side rendering for improved performance and user experience.
+## 语音连麦模块 (WebRTC + WebSocket)
 
-## 技术栈
+本模块实现了基于 WebRTC 的实时语音连麦功能，采用全自建服务架构，不依赖第三方 STUN/TURN 服务。
 
-- **后端框架**: Django 5.2.9
-- **数据库**: SQLite
-- **前端技术**: HTML, CSS, JavaScript (Vanilla)
-- **样式**: Windows 95 retro design
+### 1. 核心架构与流程
 
-## 功能特性
+本系统由前端 (HTML/JS)、信令服务 (Django Channels)、NAT 穿透服务 (Python STUN) 和 Nginx 反向代理组成。
 
-- ✅ 创建、删除、搜索备忘录
-- ✅ 敏感词过滤
-- ✅ 响应式设计
-- ✅ 服务端渲染（Server-Side Rendering, SSR）
-- ✅ 性能优化
+```mermaid
+sequenceDiagram
+    participant UserA as 用户 A (Browser)
+    participant Nginx as Nginx 代理
+    participant Django as Django (Daphne)
+    participant STUN as 自建 STUN Server
+    participant UserB as 用户 B (Browser)
 
-## 性能优化记录
+    Note over UserA, UserB: 1. 建立 WebSocket 信令连接
+    UserA->>Nginx: WSS /ws/voice/main-room/
+    Nginx->>Django: Upgrade to WebSocket (Localhost:5555)
+    Django-->>UserA: Connection Established (101)
+    
+    UserB->>Nginx: WSS /ws/voice/main-room/
+    Nginx->>Django: Upgrade to WebSocket
+    Django-->>UserB: Connection Established (101)
 
-### Django Render 渲染机制理解
+    Note over UserA, UserB: 2. NAT 穿透 (ICE Candidate 收集)
+    UserA->>STUN: UDP Binding Request (:3478)
+    STUN-->>UserA: UDP Binding Response (Public IP:Port)
+    UserA->>UserA: 生成 ICE Candidate (含公网地址)
 
-Django的`render`函数是服务端渲染的核心机制，它负责将视图函数中处理的数据与HTML模板结合，生成完整的HTML响应返回给客户端。
+    Note over UserA, UserB: 3. P2P 连接建立 (SDP 交换)
+    UserA->>Django: Send Offer (Via WebSocket)
+    Django->>UserB: Forward Offer
+    UserB->>UserB: Set Remote Desc & Create Answer
+    UserB->>Django: Send Answer
+    Django->>UserA: Forward Answer
+    
+    UserA->>Django: Send ICE Candidate
+    Django->>UserB: Forward ICE Candidate
+    UserB->>UserB: Add ICE Candidate (Success)
 
-#### 工作原理
-1. **数据准备**：在视图函数中查询数据库或处理业务逻辑，准备需要传递给模板的数据
-2. **模板渲染**：`render(request, template_name, context)`函数接收三个主要参数：
-   - `request`：HTTP请求对象，包含用户会话、请求头信息等
-   - `template_name`：模板文件路径，Django会自动在`TEMPLATES`配置的目录中查找
-   - `context`：字典类型的数据，用于在模板中渲染动态内容
-3. **响应生成**：Django的模板引擎会将模板中的变量替换为context中的实际值，生成完整的HTML字符串
-4. **客户端渲染**：浏览器接收到HTML响应后，直接解析并渲染页面，无需额外的API请求
-
-#### 优势
-- **减少网络请求**：避免了前端页面加载后再发起API请求获取数据的开销
-- **更快的首屏渲染**：用户可以立即看到完整的页面内容
-- **更好的SEO**：搜索引擎可以直接爬取到完整的页面内容
-- **简化前端逻辑**：前端不需要处理复杂的异步数据获取和状态管理
-
-### 1. 服务端渲染 (SSR) 实现
-
-**优化时间**: 2025-12-28
-**优化内容**:
-- 将备忘录页面的初始数据获取从前端异步请求改为服务端渲染
-- 修改 `zapp/views.py` 中的 `notebook` 视图函数，在服务端预先获取所有备忘录数据
-- 更新 `zapp/templates/zapp/memo.html`，直接使用服务端传递的数据渲染页面
-- 移除页面加载时对 `/apipy/api/memos/` 接口的额外请求
-
-**性能提升**:
-- 页面加载时间减少约 150-200ms（取决于网络环境）
-- 减少一次 API 请求，降低服务器负载
-- 改善首屏渲染体验，用户可立即看到备忘录内容
-
-### 2. 数据库操作优化
-
-**优化时间**: 2025-12-28
-**优化内容**:
-- 将数据库表创建逻辑从每次请求调用移至服务初始化阶段
-- 修改 `zapp/services/memo_service.py`，在 `__init__` 方法中创建表
-- 避免重复执行 `CREATE TABLE IF NOT EXISTS` 操作
-
-**性能提升**:
-- 接口响应时间从约 422ms 优化至 3.27ms
-- 减少数据库连接开销
-- 提高请求处理效率
-
-### 3. 数据库路径配置优化
-
-**优化时间**: 2025-12-28
-**优化内容**:
-- 修改 `zapp/services/memo_service.py` 中的数据库路径配置
-- 添加跨平台兼容性支持，根据操作系统类型选择合适的路径
-- 确保在 Windows 和 Linux 环境下都能正常工作
-
-**效果**:
-- 解决了 Windows 环境下数据库文件无法打开的问题
-- 提高了应用的可移植性
-
-## Changelog
-
-### [v1.2.0] - 2025-12-28
-
-**新增功能**:
-- 服务端渲染实现，提升页面加载性能
-- 添加了性能优化记录文档
-
-**修复**:
-- 修复了 memo.html 中的代码错误
-- 修复了最小化按钮横线居中显示问题
-- 修复了数据库路径在 Windows 环境下的兼容性问题
-
-**优化**:
-- 优化了数据库操作，减少重复表创建
-- 优化了前端 JavaScript 初始化逻辑
-- 提升了页面响应速度
-
-### [v1.1.0] - 2025-12-27
-
-**新增功能**:
-- 备忘录搜索功能
-- 敏感词过滤
-- 响应式设计
-
-**优化**:
-- 改进了用户界面设计
-- 增强了错误处理
-
-### [v1.0.0] - 2025-12-26
-
-**初始版本**:
-- 基本备忘录功能（创建、删除）
-- Windows 95 复古风格界面
-- 基本的数据库操作
-
-## 部署指南
-
-请参考 `SERVER_DEPLOYMENT_GUIDE.md` 文件获取详细的部署说明。
-
-## 测试
-
-运行测试命令:
-```bash
-python manage.py test
+    Note over UserA, UserB: 4. 语音通话
+    UserA<->UserB: SRTP P2P 直接传输音频流
 ```
 
-## 开发环境搭建
+### 2. 关键代码位置
 
-1. 克隆代码库
-2. 安装依赖:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. 启动开发服务器:
-   ```bash
-   python manage.py runserver
-   ```
-4. 访问 http://127.0.0.1:8000/
+#### 2.1 Nginx 配置 (反向代理)
+负责将 HTTPS 流量转发给 Django，并将 `/ws/` 路径的请求升级为 WebSocket 协议。
 
-## 许可证
+*   **配置说明**: 必须显式配置 `Upgrade` 和 `Connection` 头。
+*   **代码示例**:
+    ```nginx
+    # WebSocket 服务
+    location /ws/ {
+        proxy_pass http://localhost:5555;
+        
+        # 协议升级关键配置
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+    ```
 
-MIT License
+#### 2.2 前端实现 (WebRTC 逻辑)
+*   **文件位置**: [`zapp/templates/zapp/voice_room.html`](zapp/templates/zapp/voice_room.html)
+*   **核心功能**:
+    *   **STUN 配置**: [Line 386-395](zapp/templates/zapp/voice_room.html#L386-395) - 指定自建 STUN 服务器地址 (`stun:haoguozhi.com:3478`)。
+    *   **WebSocket 连接**: [Line 437-471](zapp/templates/zapp/voice_room.html#L437-471) - 处理信令消息 (offer, answer, ice-candidate)。
+    *   **WebRTC PeerConnection**: [Line 766-808](zapp/templates/zapp/voice_room.html#L766-808) - 管理 P2P 连接生命周期。
+
+#### 2.3 后端信令服务 (Django Channels)
+*   **路由配置**: [`zapp/routing.py`](zapp/routing.py) - 定义 WebSocket URL 路由。
+*   **消费者逻辑**: [`zapp/consumers.py`](zapp/consumers.py)
+    *   `VoiceConsumer` 类负责处理 `/ws/voice/{room_id}/` 的连接。
+    *   接收客户端的 JSON 消息并广播给房间内其他用户（实现信令转发）。
+
+#### 2.4 房间状态管理 (Python)
+*   **文件位置**: [`zapp/webrtc_service.py`](zapp/webrtc_service.py)
+*   **功能**:
+    *   管理房间列表、用户槽位 (Slot 1/2)。
+    *   处理用户加入、离开、心跳保活。
+    *   提供 HTTP API 供前端轮询房间状态。
+
+#### 2.5 自建 STUN 服务器
+*   **文件位置**: [`stun_server.py`](stun_server.py)
+*   **功能**:
+    *   监听 UDP 3478 端口。
+    *   解析 STUN 协议包 (RFC 5389)，返回客户端的公网 IP 和端口 (XOR-MAPPED-ADDRESS)。
+    *   **日志**: 输出到 `logs/stun.log`，用于调试 NAT 穿透问题。
+
+### 3. 部署注意事项
+
+1.  **端口开放**: 服务器防火墙必须放行以下端口：
+    *   **TCP 5555**: Django/Daphne 服务（仅限本地或 Nginx 连接）。
+    *   **UDP 3478**: STUN 服务（必须对公网开放，用于 NAT 穿透）。
+2.  **HTTPS 强制**: 浏览器限制 WebRTC 必须在 HTTPS 环境下运行（本地 localhost 除外）。
+3.  **进程守护**: 
+    *   Django 使用 `systemd` 或 `supervisor` 管理。
+    *   STUN 服务目前随 Django 启动 (在 `zapp/apps.py` 中调用)，也可独立部署。

@@ -6,6 +6,7 @@ import time
 import os
 from .services.file_service import get_directory_contents, read_file
 from .services.memo_service import memo_service
+from .services.stock_code_service import stock_code_service
 from .stock_api_utils import StockApiUtils
 from django.views.decorators.http import require_GET, require_POST
 def chat_page(request):
@@ -153,6 +154,11 @@ def duanlian(request):
     """锻炼计时器页面"""
     return render(request, 'zapp/duanlian.html')
 
+
+def timestamp(request):
+    """时间戳转换页面"""
+    return render(request, 'zapp/timestamp.html')
+
 @require_GET
 def static_file_access(request, file_path):
     """
@@ -205,4 +211,511 @@ def static_file_access(request, file_path):
             return response
     
     except Exception as e:
-        return JsonResponse({"code": 500, "data": None, "message": f"服务器错误：{str(e)}"}, status=500)
+            return JsonResponse({"code": 500, "data": None, "message": f"服务器错误：{str(e)}"}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def pythongetip(request):
+    """
+    采集访问者IP的API接口
+    只支持POST请求
+    """
+    import sqlite3
+    import os
+    from datetime import datetime
+    from django.utils import timezone
+    
+    try:
+        # 获取访问者真实IP，增强版，检查多个可能的HTTP头
+        ip = None
+        
+        # 从各种代理头中获取真实IP
+        for header in ['HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'HTTP_CLIENT_IP', 'REMOTE_ADDR']:
+            if header in request.META:
+                potential_ip = request.META[header]
+                # 如果是X-Forwarded-For，取第一个IP
+                if header == 'HTTP_X_FORWARDED_FOR':
+                    potential_ip = potential_ip.split(',')[0].strip()
+                # 验证IP格式（简单验证）
+                if potential_ip and '.' in potential_ip:
+                    ip = potential_ip
+                    break
+        
+        # 如果没有获取到有效IP，使用unknown
+        if not ip:
+            ip = request.META.get('REMOTE_ADDR', 'unknown')
+        
+        # 数据库路径，与memo_service保持一致
+        if os.name == 'nt':
+            db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
+        else:
+            db_path = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+        
+        # 连接数据库并创建表（如果不存在）
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            # 创建ip_visit_records表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS ip_visit_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    visit_time TEXT NOT NULL,
+                    ip_address TEXT NOT NULL
+                )
+            ''')
+            
+            # 获取北京时间
+            utc_time = timezone.now()
+            beijing_time = utc_time.astimezone(timezone.get_current_timezone())
+            visit_time = beijing_time.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # 插入数据
+            cursor.execute(
+                'INSERT INTO ip_visit_records (visit_time, ip_address) VALUES (?, ?)',
+                (visit_time, ip)
+            )
+            conn.commit()
+        
+        # 返回成功响应
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "ip": ip,
+                "message": "IP采集成功"
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"IP采集失败：{str(e)}"
+        }, status=500)
+
+
+@require_GET
+def noUseCode(request):
+    """
+    获取一个未使用的股票代码
+    :param request: HTTP请求对象
+    :return: 包含未使用股票代码的JSON响应
+    """
+    try:
+        # 获取未使用的股票代码
+        unused_code = stock_code_service.get_unused_code()
+        
+        if not unused_code:
+            return JsonResponse({
+                "code": 404,
+                "data": None,
+                "message": "没有可用的未使用股票代码"
+            }, status=404)
+        
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "code": unused_code["code"]
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取未使用代码失败：{str(e)}"
+        }, status=500)
+
+
+@csrf_exempt
+@require_POST
+def addTodayCode(request):
+    """
+    标记股票代码为已使用
+    :param request: HTTP请求对象，必须包含code和codeData参数
+    :return: 操作结果的JSON响应
+    """
+    try:
+        # 获取要标记的股票代码
+        code = request.POST.get('code')
+        if not code:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少code参数"
+            }, status=400)
+        
+        # 校验codeData字段必须存在（即使值为空）
+        if 'codeData' not in request.POST:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少codeData参数"
+            }, status=400)
+        
+        # 获取codeData参数
+        codeData = request.POST.get('codeData', '')
+        
+        # 标记代码为已使用
+        success = stock_code_service.mark_code_as_used(code, codeData)
+        
+        if success:
+            return JsonResponse({
+                "code": 200,
+                "data": None,
+                "message": "success"
+            })
+        else:
+            return JsonResponse({
+                "code": 404,
+                "data": None,
+                "message": "股票代码不存在"
+            }, status=404)
+    except Exception as e:
+        import traceback
+        # 获取完整的异常堆栈信息
+        full_error = traceback.format_exc()
+        return JsonResponse({
+            "code": 500,
+            "data": {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "stack_trace": full_error
+            },
+            "message": f"标记代码为已使用失败：{str(e)}"
+        }, status=500)
+
+@require_GET
+def getCodeInfo(request):
+    """
+    获取指定股票代码的详细信息
+    :param request: HTTP请求对象，包含code参数
+    :return: 代码详细信息的JSON响应
+    """
+    try:
+        # 获取要查询的股票代码
+        code = request.GET.get('code')
+        if not code:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少code参数"
+            }, status=400)
+        
+        # 获取代码信息
+        code_info = stock_code_service.get_code_info(code)
+        
+        if not code_info:
+            return JsonResponse({
+                "code": 404,
+                "data": None,
+                "message": "股票代码不存在"
+            }, status=404)
+        
+        return JsonResponse({
+            "code": 200,
+            "data": code_info,
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取代码信息失败：{str(e)}"
+        }, status=500)
+
+@require_GET
+def getAllUsedCodes(request):
+    """
+    获取所有已使用的股票代码及其详细信息
+    :param request: HTTP请求对象
+    :return: 已使用代码列表的JSON响应
+    """
+    try:
+        # 获取所有已使用的代码
+        used_codes = stock_code_service.get_all_used_codes()
+        
+        return JsonResponse({
+            "code": 200,
+            "data": used_codes,
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取已使用代码失败：{str(e)}"
+        }, status=500)
+
+def used_codes_page(request):
+    """
+    渲染已使用股票代码列表页面
+    :param request: HTTP请求对象
+    :return: 已使用股票代码列表页面的HTML响应
+    """
+    return render(request, 'zapp/used_codes.html')
+
+# WebRTC语音房间相关 - 从webrtc_service导入
+from .webrtc_service import room_api
+
+def voice_room(request):
+    """
+    渲染语音房间页面
+    :param request: HTTP请求对象
+    :return: 语音房间页面的HTML响应
+    """
+    return render(request, 'zapp/voice_room.html')
+
+@require_GET
+def download_code_data(request):
+    """
+    下载指定股票代码的数据
+    :param request: HTTP请求对象，包含code参数
+    :return: 股票数据文件的HTTP响应
+    """
+    try:
+        # 获取股票代码
+        code = request.GET.get('code')
+        if not code:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少code参数"
+            }, status=400)
+        
+        # 获取股票数据
+        code_data = stock_code_service.get_code_data(code)
+        
+        # 设置HTTP头，允许浏览器下载文件
+        response = HttpResponse(code_data, content_type='text/plain; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename={code}.txt'
+        response['Content-Length'] = len(code_data.encode('utf-8'))
+        
+        return response
+    except FileNotFoundError as e:
+        return JsonResponse({
+            "code": 404,
+            "data": None,
+            "message": f"股票数据文件不存在：{str(e)}"
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"下载股票数据失败：{str(e)}"
+        }, status=500)
+
+@require_GET
+def download_all_code_data(request):
+    """
+    全量下载所有已使用的股票代码数据，采用临时文件和流式传输，最小化内存占用
+    :param request: HTTP请求对象
+    :return: 压缩后的股票数据文件的流式HTTP响应
+    """
+    from django.http import StreamingHttpResponse
+    import zipfile
+    import tempfile
+    import os
+    import time
+    from datetime import datetime
+    import logging
+    
+    # 获取日志记录器
+    logger = logging.getLogger(__name__)
+    start_time = time.time()
+    
+    try:
+        logger.info(f"Start generating zip file for download_all_code_data")
+        
+        # 生成下载文件名，包含当前日期
+        current_date = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'all_stock_codes_{current_date}.zip'
+        
+        # 创建临时文件，使用指定的临时目录，确保有写入权限
+        temp_dir = tempfile.gettempdir()
+        logger.info(f"Using temp directory: {temp_dir}")
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip', dir=temp_dir) as temp_zip_file:
+            temp_zip_path = temp_zip_file.name
+        
+        logger.info(f"Created temp zip file: {temp_zip_path}")
+        
+        # 获取所有已使用的代码信息
+        used_codes = stock_code_service.get_used_codes_from_files()
+        logger.info(f"Found {len(used_codes)} used codes")
+        
+        # 创建ZipFile对象，使用临时文件而不是内存缓冲区，使用更快的压缩算法
+        with zipfile.ZipFile(temp_zip_path, 'w', zipfile.ZIP_STORED, allowZip64=True) as zip_file:
+            # 遍历所有已使用的代码，逐个添加到压缩包
+            for i, code_info in enumerate(used_codes):
+                code = code_info['code']
+                
+                try:
+                    # 直接将文件添加到压缩包，不读取到内存中
+                    file_path = os.path.join(stock_code_service.data_dir, f'{code}.txt')
+                    zip_file.write(file_path, arcname=f'{code}.txt')
+                    
+                    # 每处理100个文件记录一次日志
+                    if (i + 1) % 100 == 0:
+                        logger.info(f"Processed {i + 1}/{len(used_codes)} files")
+                except Exception as e:
+                    logger.error(f"Failed to add {code}.txt to zip: {str(e)}")
+                    continue
+        
+        # 获取临时文件大小
+        file_size = os.path.getsize(temp_zip_path)
+        logger.info(f"Generated zip file size: {file_size} bytes")
+        
+        # 定义分块读取生成器，使用更大的chunk size提高传输速度
+        def file_chunks(file_path, chunk_size=65536):  # 64KB chunk size
+            with open(file_path, 'rb') as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+        
+        # 创建一个自定义的StreamingHttpResponse子类，用于清理临时文件
+        class CleanupStreamingHttpResponse(StreamingHttpResponse):
+            def __init__(self, *args, temp_file_path=None, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.temp_file_path = temp_file_path
+            
+            def close(self):
+                super().close()
+                # 清理临时文件
+                if self.temp_file_path and os.path.exists(self.temp_file_path):
+                    try:
+                        os.remove(self.temp_file_path)
+                        logger.info(f"Cleaned up temp file: {self.temp_file_path}")
+                    except Exception as e:
+                        logger.error(f"Failed to delete temp file {self.temp_file_path}: {str(e)}")
+        
+        # 创建自定义StreamingHttpResponse对象，使用生成器进行流式传输
+        response = CleanupStreamingHttpResponse(
+            file_chunks(temp_zip_path), 
+            content_type='application/zip',
+            temp_file_path=temp_zip_path
+        )
+        
+        # 设置HTTP头，允许浏览器下载文件
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        response['Content-Length'] = file_size
+        response['X-File-Count'] = str(len(used_codes))
+        response['X-File-Size'] = str(file_size)
+        
+        # 添加超时头，防止代理服务器过早关闭连接
+        response['X-Accel-Buffering'] = 'no'  # 禁用Nginx缓冲
+        
+        logger.info(f"Generated response in {time.time() - start_time:.2f} seconds")
+        
+        return response
+    except Exception as e:
+        logger.exception(f"Failed to create zip file: {str(e)}")
+        # 清理临时文件
+        if 'temp_zip_path' in locals() and os.path.exists(temp_zip_path):
+            try:
+                os.remove(temp_zip_path)
+                logger.info(f"Cleaned up temp file after error: {temp_zip_path}")
+            except Exception:
+                pass
+        return JsonResponse({
+            "code": 500,
+            "data": {
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+                "processing_time": time.time() - start_time
+            },
+            "message": f"生成压缩文件失败：{str(e)}"
+        }, status=500)
+
+@require_GET
+def getUsedCodeList(request):
+    """
+    获取已使用的股票代码列表，返回totalCount和代码列表
+    直接从data文件夹读取，确保数据真实可靠
+    :param request: HTTP请求对象
+    :return: 包含totalCount和代码列表的JSON响应
+    """
+    try:
+        # 直接从文件系统获取已使用的代码信息
+        used_codes_from_files = stock_code_service.get_used_codes_from_files()
+        
+        # 提取代码列表
+        code_list = [code_info['code'] for code_info in used_codes_from_files]
+        total_count = len(code_list)
+        
+        # 从数据库获取已使用的代码数量，用于比较
+        db_used_count = stock_code_service.get_used_code_count_from_db()
+        file_used_count = total_count
+        
+        # 描述数据库和文件系统之间的差异
+        if db_used_count == file_used_count:
+            status_desc = f"数据库记录与实际文件数量一致，均为{db_used_count}个"
+        else:
+            status_desc = f"数据库记录({db_used_count}个)与实际文件数量({file_used_count}个)不一致，以实际文件为准"
+        
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "totalCount": total_count,
+                "list": code_list,
+                "statusDesc": status_desc
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取已使用代码列表失败：{str(e)}"
+        }, status=500)
+
+
+@csrf_exempt
+@require_POST
+def clear_all_code_data(request):
+    """
+    移除data目录下的所有文件，并重置数据库中股票代码的使用状态
+    :param request: HTTP请求对象
+    :return: 操作结果的JSON响应
+    """
+    try:
+        # 获取清理前的文件数量
+        used_codes_before = stock_code_service.get_used_codes_from_files()
+        files_count_before = len(used_codes_before)
+        
+        # 从数据库获取清理前的已使用代码数量
+        db_used_count_before = stock_code_service.get_used_code_count_from_db()
+        
+        # 执行清理操作
+        affected_rows = stock_code_service.reset_code_usage()
+        
+        # 获取清理后的文件数量
+        used_codes_after = stock_code_service.get_used_codes_from_files()
+        files_count_after = len(used_codes_after)
+        
+        # 从数据库获取清理后的已使用代码数量
+        db_used_count_after = stock_code_service.get_used_code_count_from_db()
+        
+        # 计算清理的文件数量
+        deleted_files_count = files_count_before - files_count_after
+        
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "deletedFilesCount": deleted_files_count,
+                "affectedRows": affected_rows,
+                "dbUsedCountBefore": db_used_count_before,
+                "dbUsedCountAfter": db_used_count_after,
+                "filesCountBefore": files_count_before,
+                "filesCountAfter": files_count_after,
+                "status": "success"
+            },
+            "message": f"成功清理了{deleted_files_count}个文件，重置了{affected_rows}条数据库记录"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"清理数据失败：{str(e)}"
+        }, status=500)

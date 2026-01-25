@@ -9,6 +9,8 @@ urlpatterns = [
     path('api/timestamp/', views.timestamp_api, name='timestamp_api'),
     path('api/getAllCodes/', views.get_all_codes, name='get_all_codes'),
     path('api/fetch_stock/', views.fetch_stock, name='fetch_stock'),
+    # IP采集接口
+    path('api/pythongetip/', views.pythongetip, name='pythongetip'),
     # 备忘录接口
     path('api/memos/', views.get_all_memos, name='get_all_memos'),
     path('api/memos/add/', views.add_memo, name='add_memo'),
@@ -19,6 +21,21 @@ urlpatterns = [
     path('notebook', views.notebook, name='notebook'),
     # 锻炼计时器页面
     path('duanlian', views.duanlian, name='duanlian'),
+    # 时间戳转换页面
+    path('timestamp', views.timestamp, name='timestamp'),
     # 静态文件访问接口
     path('static/<path:file_path>', views.static_file_access, name='static_file_access'),
+    # 股票代码管理API
+    path('api/noUseCode/', views.noUseCode, name='noUseCode'),
+    path('api/addTodayCode/', views.addTodayCode, name='addTodayCode'),
+    path('api/getCodeInfo/', views.getCodeInfo, name='getCodeInfo'),
+    path('api/getAllUsedCodes/', views.getAllUsedCodes, name='getAllUsedCodes'),
+    path('api/getUsedCodeList/', views.getUsedCodeList, name='getUsedCodeList'),
+    path('api/downloadCodeData/', views.download_code_data, name='download_code_data'),
+    path('api/downloadAllCodeData/', views.download_all_code_data, name='download_all_code_data'),
+    path('api/clearAllCodeData/', views.clear_all_code_data, name='clear_all_code_data'),
+    path('usedcodes', views.used_codes_page, name='used_codes_page'),
+    # WebRTC语音房间相关路由
+    path('voice-room', views.voice_room, name='voice_room'),
+    path('api/room/', views.room_api, name='room_api'),
 ]
