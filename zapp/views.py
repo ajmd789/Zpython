@@ -465,6 +465,13 @@ def voice_room(request):
     """
     return render(request, 'zapp/voice_room.html')
 
+
+def stopwatch(request):
+    """
+    秒表功能页面
+    """
+    return render(request, 'zapp/stopwatch.html')
+
 @require_GET
 def download_code_data(request):
     """

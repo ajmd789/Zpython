@@ -1,0 +1,3 @@
+1.任何需求，拿到后都分析一下，生成requirements.md ,然后询问我是否有要修改的地方，然后根据requirements.md生成design.md，然后询问我是否有要修改的地方，然后根据design.md，生成tasks.md，然后询问我是否有要修改的地方，然后再写代码；
+2.按照文件夹生成这些md，比如精确到2026-01-29-1点59分3秒，然后命名文件夹2026-01-29-1点59分3秒-生成秒表页面， 这个需求的md放在这个文件夹里面；
+3.生成html，接口调用可以参照zapp\templates\zapp\timestamp.html里的api格式；

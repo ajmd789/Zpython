@@ -23,6 +23,8 @@ urlpatterns = [
     path('duanlian', views.duanlian, name='duanlian'),
     # 时间戳转换页面
     path('timestamp', views.timestamp, name='timestamp'),
+    # 秒表功能页面
+    path('stopwatch', views.stopwatch, name='stopwatch'),
     # 静态文件访问接口
     path('static/<path:file_path>', views.static_file_access, name='static_file_access'),
     # 股票代码管理API
