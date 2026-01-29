@@ -251,7 +251,7 @@
         function startStopwatch() {
             if (!isRunning) {
                 // 启动秒表
-                startTime = Date.now() - (currentTime || 0);
+                startTime = Date.now() - currentTime;
                 timerInterval = setInterval(updateDisplay, 10);
                 document.getElementById('startStopBtn').textContent = '停止';
                 document.getElementById('lapBtn').disabled = false;
@@ -278,9 +278,9 @@
         function resetStopwatch() {
             clearInterval(timerInterval);
             startTime = null;
-            currentTime = null;
+            currentTime = 0;
             lapTimes = [];
-            updateDisplay();
+            document.getElementById('stopwatchTime').textContent = '00:00.00';
             updateLapsDisplay();
             document.getElementById('startStopBtn').textContent = '启动';
             document.getElementById('lapBtn').disabled = true;
