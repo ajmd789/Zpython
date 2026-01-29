@@ -1,0 +1,410 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IP访问记录</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .filter-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .input-group label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .input-group input,
+        .input-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .records-section {
+            margin-bottom: 20px;
+        }
+
+        .records-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #666;
+        }
+
+        .records-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .records-table th,
+        .records-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .records-table th {
+            background-color: #e9ecef;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .records-table tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .record-id {
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .record-time {
+            font-family: 'Courier New', monospace;
+        }
+
+        .record-ip {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .pagination button {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover {
+            background-color: #f8f9fa;
+        }
+
+        .pagination button.active {
+            background-color: #007bff;
+            color: #fff;
+            border-color: #007bff;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            text-align: center;
+            padding: 20px;
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .filter-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .input-group {
+                width: 100%;
+            }
+
+            .records-table th,
+            .records-table td {
+                padding: 8px;
+                font-size: 14px;
+            }
+
+            .pagination {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>IP访问记录</h1>
+        
+        <div class="filter-section">
+            <div class="filter-row">
+                <div class="input-group">
+                    <label for="pageSize">每页记录数</label>
+                    <select id="pageSize">
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="fetchRecords(1)">刷新</button>
+            </div>
+        </div>
+
+        <div class="records-section">
+            <h2>访问记录列表</h2>
+            <div id="errorMessage" class="error" style="display: none;"></div>
+            <div id="loading" class="loading">加载中...</div>
+            <table class="records-table" id="recordsTable" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>访问时间</th>
+                        <th>IP地址</th>
+                    </tr>
+                </thead>
+                <tbody id="recordsBody">
+                    <!-- 记录将通过JavaScript动态添加 -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination" id="pagination"></div>
+        <div class="status-bar" id="statusBar"></div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let pageSize = 10;
+        let totalCount = 0;
+        let totalPages = 0;
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', function() {
+            // 获取访问者IP（参照timestamp.html的API格式）
+            fetch('/apipy/api/pythongetip/', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('IP采集成功:', data);
+                })
+                .catch(error => {
+                    console.error('IP采集失败:', error);
+                });
+
+            // 初始化加载第一页记录
+            fetchRecords(1);
+        });
+
+        // 获取IP记录
+        function fetchRecords(page) {
+            currentPage = page;
+            pageSize = parseInt(document.getElementById('pageSize').value);
+
+            // 显示加载状态
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('recordsTable').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+
+            // 发送请求
+            fetch(`/apipy/api/get_ip_records/?page=${page}&page_size=${pageSize}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.code === 200) {
+                        // 成功获取数据
+                        displayRecords(data.data);
+                    } else {
+                        // 显示错误信息
+                        document.getElementById('errorMessage').textContent = data.message;
+                        document.getElementById('errorMessage').style.display = 'block';
+                        document.getElementById('loading').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    // 显示网络错误
+                    document.getElementById('errorMessage').textContent = `网络错误：${error.message}`;
+                    document.getElementById('errorMessage').style.display = 'block';
+                    document.getElementById('loading').style.display = 'none';
+                });
+        }
+
+        // 显示记录
+        function displayRecords(data) {
+            totalCount = data.total_count;
+            totalPages = data.total_pages;
+            currentPage = data.current_page;
+            pageSize = data.page_size;
+            const records = data.records;
+
+            // 填充表格数据
+            const recordsBody = document.getElementById('recordsBody');
+            recordsBody.innerHTML = '';
+
+            if (records.length === 0) {
+                const emptyRow = document.createElement('tr');
+                emptyRow.innerHTML = `<td colspan="3" style="text-align: center; padding: 40px;">暂无记录</td>`;
+                recordsBody.appendChild(emptyRow);
+            } else {
+                records.forEach(record => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="record-id">${record.id}</td>
+                        <td class="record-time">${record.visit_time}</td>
+                        <td class="record-ip">${record.ip_address}</td>
+                    `;
+                    recordsBody.appendChild(row);
+                });
+            }
+
+            // 更新分页控件
+            updatePagination();
+
+            // 更新状态栏
+            updateStatusBar();
+
+            // 显示表格，隐藏加载状态
+            document.getElementById('recordsTable').style.display = 'table';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // 更新分页控件
+        function updatePagination() {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+
+            // 上一页按钮
+            const prevButton = document.createElement('button');
+            prevButton.textContent = '上一页';
+            prevButton.disabled = currentPage === 1;
+            prevButton.onclick = () => fetchRecords(currentPage - 1);
+            pagination.appendChild(prevButton);
+
+            // 页码按钮
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, startPage + 4);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                pageButton.className = i === currentPage ? 'active' : '';
+                pageButton.onclick = () => fetchRecords(i);
+                pagination.appendChild(pageButton);
+            }
+
+            // 下一页按钮
+            const nextButton = document.createElement('button');
+            nextButton.textContent = '下一页';
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.onclick = () => fetchRecords(currentPage + 1);
+            pagination.appendChild(nextButton);
+        }
+
+        // 更新状态栏
+        function updateStatusBar() {
+            const statusBar = document.getElementById('statusBar');
+            const startIndex = (currentPage - 1) * pageSize + 1;
+            const endIndex = Math.min(currentPage * pageSize, totalCount);
+            
+            statusBar.innerHTML = `
+                <div>共 ${totalCount} 条记录</div>
+                <div>显示 ${startIndex}-${endIndex} 条，共 ${totalPages} 页</div>
+            `;
+        }
+
+        // 监听每页记录数变化
+        document.getElementById('pageSize').addEventListener('change', function() {
+            fetchRecords(1);
+        });
+    </script>
+</body>
+</html>

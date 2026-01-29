@@ -11,6 +11,8 @@ urlpatterns = [
     path('api/fetch_stock/', views.fetch_stock, name='fetch_stock'),
     # IP采集接口
     path('api/pythongetip/', views.pythongetip, name='pythongetip'),
+    # IP记录查询接口
+    path('api/get_ip_records/', views.get_ip_records, name='get_ip_records'),
     # 备忘录接口
     path('api/memos/', views.get_all_memos, name='get_all_memos'),
     path('api/memos/add/', views.add_memo, name='add_memo'),
@@ -25,6 +27,8 @@ urlpatterns = [
     path('timestamp', views.timestamp, name='timestamp'),
     # 秒表功能页面
     path('stopwatch', views.stopwatch, name='stopwatch'),
+    # IP访问记录页面
+    path('ip_records', views.ip_records, name='ip_records'),
     # 静态文件访问接口
     path('static/<path:file_path>', views.static_file_access, name='static_file_access'),
     # 股票代码管理API

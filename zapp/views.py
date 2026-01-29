@@ -294,6 +294,84 @@ def pythongetip(request):
 
 
 @require_GET
+def get_ip_records(request):
+    """
+    分页查询IP访问记录的API接口
+    支持GET请求，参数：
+    - page: 当前页码
+    - page_size: 每页记录数
+    """
+    import sqlite3
+    import os
+    
+    try:
+        # 获取分页参数
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 10))
+        
+        # 验证参数
+        if page < 1:
+            page = 1
+        if page_size < 1 or page_size > 100:
+            page_size = 10
+        
+        # 计算偏移量
+        offset = (page - 1) * page_size
+        
+        # 数据库路径
+        if os.name == 'nt':
+            db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
+        else:
+            db_path = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+        
+        # 连接数据库
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 获取总记录数
+            cursor.execute('SELECT COUNT(*) FROM ip_visit_records')
+            total_count = cursor.fetchone()[0]
+            
+            # 获取分页记录
+            cursor.execute(
+                'SELECT id, visit_time, ip_address FROM ip_visit_records ORDER BY id DESC LIMIT ? OFFSET ?',
+                (page_size, offset)
+            )
+            records = cursor.fetchall()
+            
+            # 格式化记录
+            formatted_records = []
+            for record in records:
+                formatted_records.append({
+                    'id': record[0],
+                    'visit_time': record[1],
+                    'ip_address': record[2]
+                })
+        
+        # 计算总页数
+        total_pages = (total_count + page_size - 1) // page_size
+        
+        # 返回响应
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "records": formatted_records,
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "current_page": page,
+                "page_size": page_size
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"查询失败：{str(e)}"
+        }, status=500)
+
+
+@require_GET
 def noUseCode(request):
     """
     获取一个未使用的股票代码
@@ -471,6 +549,13 @@ def stopwatch(request):
     秒表功能页面
     """
     return render(request, 'zapp/stopwatch.html')
+
+
+def ip_records(request):
+    """
+    IP访问记录查询页面
+    """
+    return render(request, 'zapp/ip_records.html')
 
 @require_GET
 def download_code_data(request):
