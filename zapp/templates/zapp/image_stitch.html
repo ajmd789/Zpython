@@ -1,0 +1,694 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>图片拼接工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .upload-section {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 2px dashed #ddd;
+        }
+
+        .upload-section h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #666;
+            text-align: center;
+        }
+
+        .upload-controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .file-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .file-name {
+            font-size: 12px;
+            color: #666;
+            max-width: 200px;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .controls-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .edit-section {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: auto;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .image-container {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+            transform-origin: center;
+        }
+
+        .image-container img {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .info-section {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e7f3ff;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .instructions h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #007bff;
+        }
+
+        .instructions ul {
+            list-style-type: disc;
+            margin-left: 20px;
+            color: #666;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .edit-section {
+                height: 400px;
+            }
+
+            .upload-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .controls-section {
+                flex-direction: column;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>图片拼接工具</h1>
+        
+        <div class="upload-section">
+            <h2>📁 上传图片（支持拖拽或点击上传）</h2>
+            <div class="upload-controls">
+                <div class="file-upload">
+                    <label for="file1" class="upload-btn">选择图片 1</label>
+                    <input type="file" id="file1" class="file-input" accept="image/*">
+                    <div class="file-name" id="fileName1">未选择文件</div>
+                </div>
+                <div class="file-upload">
+                    <label for="file2" class="upload-btn">选择图片 2</label>
+                    <input type="file" id="file2" class="file-input" accept="image/*">
+                    <div class="file-name" id="fileName2">未选择文件</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <button class="btn btn-primary" id="resetBtn">重置</button>
+            <button class="btn btn-danger" id="clearBtn">清除所有</button>
+            <button class="btn btn-secondary" id="zoomInBtn">放大</button>
+            <button class="btn btn-secondary" id="zoomOutBtn">缩小</button>
+        </div>
+
+        <div class="edit-section" id="editSection">
+            <!-- 图片将在这里动态添加 -->
+        </div>
+
+        <div class="info-section">
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">选中图片:</span>
+                    <span class="info-value" id="selectedImage">无</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">位置 X:</span>
+                    <span class="info-value" id="positionX">0</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">位置 Y:</span>
+                    <span class="info-value" id="positionY">0</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">缩放比例:</span>
+                    <span class="info-value" id="scaleValue">100%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>操作说明</h3>
+            <ul>
+                <li>点击按钮或拖拽文件上传两张图片</li>
+                <li>拖动图片调整位置</li>
+                <li>使用鼠标滚轮缩放图片（或点击放大/缩小按钮）</li>
+                <li>将两张图片挨着放置，然后使用系统截图工具保存拼接结果</li>
+                <li>点击"重置"按钮恢复初始状态</li>
+                <li>点击"清除所有"按钮移除所有图片</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let images = [];
+        let selectedImageIndex = -1;
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+        let isResizing = false;
+        let resizeOffset = { x: 0, y: 0 };
+        
+        // 日志函数
+        function log(message) {
+            console.log(`[Image Stitch] ${message}`);
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', function() {
+            // 获取访问者IP
+            fetch('/apipy/api/pythongetip/', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('IP采集成功:', data);
+                })
+                .catch(error => {
+                    console.error('IP采集失败:', error);
+                });
+
+            // 绑定事件监听器
+            bindEventListeners();
+        });
+
+        // 绑定事件监听器
+        function bindEventListeners() {
+            // 文件上传事件
+            document.getElementById('file1').addEventListener('change', function(e) {
+                handleFileUpload(e, 0);
+            });
+            
+            document.getElementById('file2').addEventListener('change', function(e) {
+                handleFileUpload(e, 1);
+            });
+
+            // 拖拽上传
+            const uploadSection = document.querySelector('.upload-section');
+            uploadSection.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#007bff';
+            });
+
+            uploadSection.addEventListener('dragleave', function() {
+                this.style.borderColor = '#ddd';
+            });
+
+            uploadSection.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.style.borderColor = '#ddd';
+                
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.type.startsWith('image/')) {
+                        // 自动选择第一个空位置
+                        const index = images.length < 2 ? images.length : 0;
+                        handleFile(file, index);
+                    }
+                }
+            });
+
+            // 操作按钮事件
+            document.getElementById('resetBtn').addEventListener('click', resetImages);
+            document.getElementById('clearBtn').addEventListener('click', clearImages);
+            document.getElementById('zoomInBtn').addEventListener('click', function() {
+                zoomImage(1.1);
+            });
+            document.getElementById('zoomOutBtn').addEventListener('click', function() {
+                zoomImage(0.9);
+            });
+
+            // 编辑区域事件
+            const editSection = document.getElementById('editSection');
+            editSection.addEventListener('mousemove', handleMouseMove);
+            editSection.addEventListener('mouseup', handleMouseUp);
+            editSection.addEventListener('mouseleave', handleMouseUp);
+        }
+
+        // 处理文件上传
+        function handleFileUpload(e, index) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file, index);
+            }
+        }
+
+        // 处理文件
+        function handleFile(file, index) {
+            log(`Handling file upload for index ${index}`);
+            log(`File name: ${file.name}`);
+            log(`Current images length: ${images.length}`);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                log('File loaded successfully');
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    log('Image loaded successfully');
+                    // 计算初始位置
+                    const editSection = document.getElementById('editSection');
+                    const sectionWidth = editSection.clientWidth;
+                    const sectionHeight = editSection.clientHeight;
+                    
+                    log(`Edit section size: width=${sectionWidth}, height=${sectionHeight}`);
+                    
+                    // 调整图片大小，最大宽度/高度为400px
+                    let width = img.width;
+                    let height = img.height;
+                    const maxSize = 400;
+                    
+                    log(`Original image size: width=${width}, height=${height}`);
+                    
+                    if (width > height) {
+                        if (width > maxSize) {
+                            height = (height * maxSize) / width;
+                            width = maxSize;
+                        }
+                    } else {
+                        if (height > maxSize) {
+                            width = (width * maxSize) / height;
+                            height = maxSize;
+                        }
+                    }
+
+                    log(`Resized image size: width=${width}, height=${height}`);
+
+                    // 计算初始位置（居中）
+                    const initialX = (sectionWidth - width) / 2;
+                    const initialY = (sectionHeight - height) / 2;
+
+                    log(`Initial position: x=${initialX}, y=${initialY}`);
+
+                    // 创建图片容器
+                    const container = document.createElement('div');
+                    container.className = 'image-container';
+                    container.style.width = width + 'px';
+                    container.style.height = height + 'px';
+                    container.style.left = initialX + 'px';
+                    container.style.top = initialY + 'px';
+                    container.style.transform = 'scale(1)';
+                    
+                    // 添加图片
+                    container.appendChild(img);
+
+                    // 存储图片信息
+                    const imageInfo = {
+                        element: container,
+                        img: img,
+                        width: width,
+                        height: height,
+                        x: initialX,
+                        y: initialY,
+                        scale: 1
+                    };
+
+                    // 更新或添加图片
+                    if (index < images.length) {
+                        log(`Updating existing image at index ${index}`);
+                        // 移除旧图片
+                        if (images[index] && images[index].element) {
+                            log(`Removing old image element`);
+                            images[index].element.remove();
+                        }
+                        images[index] = imageInfo;
+                        log(`Image at index ${index} updated`);
+                    } else {
+                        log(`Adding new image at index ${images.length}`);
+                        images.push(imageInfo);
+                        log(`Image added, new images length: ${images.length}`);
+                    }
+
+                    // 添加到编辑区域
+                    editSection.appendChild(container);
+                    log(`Image container added to edit section`);
+
+                    // 更新文件名显示
+                    const fileNameElement = document.getElementById('fileName' + (index + 1));
+                    if (fileNameElement) {
+                        fileNameElement.textContent = file.name;
+                        log(`File name updated: ${file.name}`);
+                    }
+
+                    // 绑定事件
+                    bindImageEvents(container, images.length - 1);
+                    log(`Events bound to image container`);
+
+                    // 选中当前图片
+                    selectImage(images.length - 1);
+                    log(`Image selection completed`);
+                };
+                img.onerror = function() {
+                    log('Error loading image');
+                };
+            };
+            reader.onerror = function() {
+                log('Error reading file');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 绑定图片事件
+        function bindImageEvents(container, index) {
+            // 点击事件
+            container.addEventListener('click', function(e) {
+                e.stopPropagation();
+                selectImage(index);
+            });
+
+            // 鼠标按下事件（拖拽）
+            container.addEventListener('mousedown', function(e) {
+                e.stopPropagation();
+                selectImage(index);
+                
+                log(`Mouse down on image ${index + 1}`);
+                log(`Container offset: left=${container.offsetLeft}, top=${container.offsetTop}`);
+                log(`Mouse position: clientX=${e.clientX}, clientY=${e.clientY}`);
+                
+                // 只处理拖拽功能
+                isDragging = true;
+                isResizing = false;
+                // 计算鼠标在容器内的相对位置
+                const rect = container.getBoundingClientRect();
+                dragOffset = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                log(`Starting drag: offset=${JSON.stringify(dragOffset)}`);
+                log(`Container rect: left=${rect.left}, top=${rect.top}, width=${rect.width}, height=${rect.height}`);
+            });
+
+            // 鼠标滚轮事件（缩放）
+            container.addEventListener('wheel', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                selectImage(index);
+                
+                // 计算缩放比例
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                zoomImage(delta);
+            });
+        }
+
+        // 选择图片
+        function selectImage(index) {
+            log(`Selecting image ${index + 1}`);
+            log(`Current images length: ${images.length}`);
+            log(`Index validity: ${index >= 0 && index < images.length}`);
+            
+            // 取消之前的选择
+            if (selectedImageIndex >= 0 && images[selectedImageIndex]) {
+                log(`Deselecting previous image ${selectedImageIndex + 1}`);
+            }
+
+            // 选择新图片
+            selectedImageIndex = index;
+            if (index >= 0 && index < images.length && images[index]) {
+                log(`Selecting new image ${index + 1}`);
+                updateInfoDisplay();
+                log(`Image ${index + 1} selected successfully`);
+            } else {
+                log(`Invalid image index: ${index}`);
+            }
+        }
+
+        // 处理鼠标移动
+        function handleMouseMove(e) {
+            if (isDragging && selectedImageIndex >= 0 && images[selectedImageIndex]) {
+                const image = images[selectedImageIndex];
+                const container = image.element;
+                
+                log(`Mouse moving - dragging image ${selectedImageIndex + 1}`);
+                log(`Mouse position: clientX=${e.clientX}, clientY=${e.clientY}`);
+                log(`Drag offset: ${JSON.stringify(dragOffset)}`);
+                
+                // 获取父容器的位置
+                const parentRect = container.parentElement.getBoundingClientRect();
+                log(`Parent rect: left=${parentRect.left}, top=${parentRect.top}`);
+                
+                // 计算新位置
+                const newX = e.clientX - parentRect.left - dragOffset.x;
+                const newY = e.clientY - parentRect.top - dragOffset.y;
+                
+                log(`Calculated new position: x=${newX}, y=${newY}`);
+                
+                // 确保值有效
+                if (!isNaN(newX) && !isNaN(newY)) {
+                    // 更新位置
+                    container.style.left = newX + 'px';
+                    container.style.top = newY + 'px';
+                    
+                    // 更新图片信息
+                    image.x = newX;
+                    image.y = newY;
+                    
+                    // 更新信息显示
+                    updateInfoDisplay();
+                    
+                    log(`Image ${selectedImageIndex + 1} moved to: x=${newX}, y=${newY}`);
+                } else {
+                    log(`Invalid position calculated: x=${newX}, y=${newY}`);
+                }
+            }
+        }
+
+        // 处理鼠标释放
+        function handleMouseUp() {
+            log('Mouse up - stopping drag/resize');
+            isDragging = false;
+            isResizing = false;
+        }
+
+        // 缩放图片
+        function zoomImage(scaleFactor) {
+            if (selectedImageIndex >= 0 && images[selectedImageIndex]) {
+                const image = images[selectedImageIndex];
+                const container = image.element;
+                
+                // 计算新的缩放比例
+                let newScale = image.scale * scaleFactor;
+                
+                // 限制缩放范围
+                const minScale = 0.1;
+                const maxScale = 5;
+                newScale = Math.max(minScale, Math.min(maxScale, newScale));
+                
+                // 更新缩放
+                image.scale = newScale;
+                container.style.transform = 'scale(' + newScale + ')';
+                
+                // 更新信息显示
+                updateInfoDisplay();
+            }
+        }
+
+        // 更新信息显示
+        function updateInfoDisplay() {
+            if (selectedImageIndex >= 0 && images[selectedImageIndex]) {
+                const image = images[selectedImageIndex];
+                
+                document.getElementById('selectedImage').textContent = '图片 ' + (selectedImageIndex + 1);
+                document.getElementById('positionX').textContent = Math.round(image.x);
+                document.getElementById('positionY').textContent = Math.round(image.y);
+                document.getElementById('scaleValue').textContent = Math.round(image.scale * 100) + '%';
+            } else {
+                document.getElementById('selectedImage').textContent = '无';
+                document.getElementById('positionX').textContent = '0';
+                document.getElementById('positionY').textContent = '0';
+                document.getElementById('scaleValue').textContent = '100%';
+            }
+        }
+
+        // 重置图片
+        function resetImages() {
+            // 清除所有图片
+            clearImages();
+            
+            // 重置文件名显示
+            document.getElementById('fileName1').textContent = '未选择文件';
+            document.getElementById('fileName2').textContent = '未选择文件';
+            
+            // 重置文件输入
+            document.getElementById('file1').value = '';
+            document.getElementById('file2').value = '';
+        }
+
+        // 清除所有图片
+        function clearImages() {
+            // 移除所有图片元素
+            images.forEach(image => {
+                if (image.element) {
+                    image.element.remove();
+                }
+            });
+            
+            // 清空图片数组
+            images = [];
+            selectedImageIndex = -1;
+            
+            // 更新信息显示
+            updateInfoDisplay();
+        }
+    </script>
+</body>
+</html>
