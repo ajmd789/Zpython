@@ -29,6 +29,8 @@ urlpatterns = [
     path('stopwatch', views.stopwatch, name='stopwatch'),
     # IP访问记录页面
     path('ip_records', views.ip_records, name='ip_records'),
+    # 图片拼接工具页面
+    path('image_stitch', views.image_stitch, name='image_stitch'),
     # 静态文件访问接口
     path('static/<path:file_path>', views.static_file_access, name='static_file_access'),
     # 股票代码管理API

@@ -557,6 +557,13 @@ def ip_records(request):
     """
     return render(request, 'zapp/ip_records.html')
 
+
+def image_stitch(request):
+    """
+    图片拼接工具页面
+    """
+    return render(request, 'zapp/image_stitch.html')
+
 @require_GET
 def download_code_data(request):
     """

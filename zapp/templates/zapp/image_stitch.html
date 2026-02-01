@@ -153,10 +153,63 @@
             transform-origin: center;
         }
 
+        .image-container:hover {
+            cursor: move;
+        }
+
+        .image-container.resizing {
+            cursor: nwse-resize;
+        }
+
         .image-container img {
             display: block;
             max-width: 100%;
             max-height: 100%;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #007bff;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+        }
+
+        .image-container.resizing .resize-handle {
+            display: block;
+        }
+
+        .resize-handle.top-left {
+            top: -5px;
+            left: -5px;
+        }
+
+        .resize-handle.top-right {
+            top: -5px;
+            right: -5px;
+        }
+
+        .resize-handle.bottom-left {
+            bottom: -5px;
+            left: -5px;
+        }
+
+        .resize-handle.bottom-right {
+            bottom: -5px;
+            right: -5px;
+        }
+
+        .resize-diagonal {
+            position: absolute;
+            border: 2px solid #007bff;
+            pointer-events: none;
+            display: none;
+        }
+
+        .image-container.resizing .resize-diagonal {
+            display: block;
         }
 
         .info-section {
@@ -452,6 +505,19 @@
                     // 添加图片
                     container.appendChild(img);
 
+                    // 添加调整大小的手柄
+                    const resizeHandles = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+                    resizeHandles.forEach(position => {
+                        const handle = document.createElement('div');
+                        handle.className = 'resize-handle ' + position;
+                        container.appendChild(handle);
+                    });
+
+                    // 添加对角线调整指示器
+                    const diagonal = document.createElement('div');
+                    diagonal.className = 'resize-diagonal';
+                    container.appendChild(diagonal);
+
                     // 存储图片信息
                     const imageInfo = {
                         element: container,
@@ -516,7 +582,29 @@
                 selectImage(index);
             });
 
-            // 鼠标按下事件（拖拽）
+            // 双击事件（进入调整大小模式）
+            container.addEventListener('dblclick', function(e) {
+                e.stopPropagation();
+                selectImage(index);
+                
+                log(`Double click on image ${index + 1} - entering resize mode`);
+                
+                // 进入调整大小模式
+                container.classList.add('resizing');
+                isResizing = true;
+                isDragging = false;
+                
+                // 计算初始偏移
+                const rect = container.getBoundingClientRect();
+                resizeOffset = {
+                    x: e.clientX - rect.width,
+                    y: e.clientY - rect.height
+                };
+                
+                log(`Resize mode entered, offset=${JSON.stringify(resizeOffset)}`);
+            });
+
+            // 鼠标按下事件
             container.addEventListener('mousedown', function(e) {
                 e.stopPropagation();
                 selectImage(index);
@@ -525,17 +613,35 @@
                 log(`Container offset: left=${container.offsetLeft}, top=${container.offsetTop}`);
                 log(`Mouse position: clientX=${e.clientX}, clientY=${e.clientY}`);
                 
-                // 只处理拖拽功能
-                isDragging = true;
-                isResizing = false;
-                // 计算鼠标在容器内的相对位置
-                const rect = container.getBoundingClientRect();
-                dragOffset = {
-                    x: e.clientX - rect.left,
-                    y: e.clientY - rect.top
-                };
-                log(`Starting drag: offset=${JSON.stringify(dragOffset)}`);
-                log(`Container rect: left=${rect.left}, top=${rect.top}, width=${rect.width}, height=${rect.height}`);
+                // 检查是否在调整大小模式或点击了调整大小的手柄
+                if (container.classList.contains('resizing') || e.target.classList.contains('resize-handle')) {
+                    // 处理调整大小
+                    isResizing = true;
+                    isDragging = false;
+                    
+                    // 计算调整大小的偏移
+                    const rect = container.getBoundingClientRect();
+                    resizeOffset = {
+                        x: e.clientX - rect.width,
+                        y: e.clientY - rect.height
+                    };
+                    
+                    log(`Starting resize: offset=${JSON.stringify(resizeOffset)}`);
+                } else {
+                    // 处理拖拽
+                    isDragging = true;
+                    isResizing = false;
+                    
+                    // 计算鼠标在容器内的相对位置
+                    const rect = container.getBoundingClientRect();
+                    dragOffset = {
+                        x: e.clientX - rect.left,
+                        y: e.clientY - rect.top
+                    };
+                    
+                    log(`Starting drag: offset=${JSON.stringify(dragOffset)}`);
+                    log(`Container rect: left=${rect.left}, top=${rect.top}, width=${rect.width}, height=${rect.height}`);
+                }
             });
 
             // 鼠标滚轮事件（缩放）
@@ -609,6 +715,45 @@
                 } else {
                     log(`Invalid position calculated: x=${newX}, y=${newY}`);
                 }
+            } else if (isResizing && selectedImageIndex >= 0 && images[selectedImageIndex]) {
+                const image = images[selectedImageIndex];
+                const container = image.element;
+                
+                log(`Mouse moving - resizing image ${selectedImageIndex + 1}`);
+                log(`Mouse position: clientX=${e.clientX}, clientY=${e.clientY}`);
+                
+                // 计算新尺寸
+                const newWidth = e.clientX - container.offsetLeft - resizeOffset.x;
+                const newHeight = e.clientY - container.offsetTop - resizeOffset.y;
+                
+                log(`Calculated new size: width=${newWidth}, height=${newHeight}`);
+                
+                // 限制最小尺寸
+                const minSize = 50;
+                if (newWidth > minSize && newHeight > minSize) {
+                    // 计算缩放比例
+                    const scaleX = newWidth / image.width;
+                    const scaleY = newHeight / image.height;
+                    const scale = Math.min(scaleX, scaleY);
+                    
+                    log(`Calculated scale: ${scale}`);
+                    
+                    // 更新尺寸和缩放
+                    image.width = newWidth;
+                    image.height = newHeight;
+                    image.scale = scale;
+                    
+                    container.style.width = newWidth + 'px';
+                    container.style.height = newHeight + 'px';
+                    container.style.transform = 'scale(' + scale + ')';
+                    
+                    // 更新信息显示
+                    updateInfoDisplay();
+                    
+                    log(`Image ${selectedImageIndex + 1} resized to: width=${newWidth}, height=${newHeight}, scale=${scale}`);
+                } else {
+                    log(`Size too small: width=${newWidth}, height=${newHeight}`);
+                }
             }
         }
 
@@ -618,6 +763,22 @@
             isDragging = false;
             isResizing = false;
         }
+
+        // 点击空白区域退出调整模式
+        document.getElementById('editSection').addEventListener('click', function(e) {
+            if (e.target === this) {
+                log('Click on blank area - exiting resize mode');
+                // 退出所有图片的调整模式
+                images.forEach((image, index) => {
+                    if (image.element.classList.contains('resizing')) {
+                        log(`Exiting resize mode for image ${index + 1}`);
+                        image.element.classList.remove('resizing');
+                    }
+                });
+                isResizing = false;
+                isDragging = false;
+            }
+        });
 
         // 缩放图片
         function zoomImage(scaleFactor) {
