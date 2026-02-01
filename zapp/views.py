@@ -564,6 +564,138 @@ def image_stitch(request):
     """
     return render(request, 'zapp/image_stitch.html')
 
+
+def voice_recorder(request):
+    """
+    音频录音页面
+    """
+    return render(request, 'zapp/voice_recorder.html')
+
+
+@csrf_exempt
+@require_POST
+def save_recording(request):
+    """
+    保存录音文件的API接口
+    :param request: HTTP请求对象，包含录音文件
+    :return: 保存结果的JSON响应
+    """
+    try:
+        # 检查是否有录音文件
+        if 'recording' not in request.FILES:
+            return JsonResponse({
+                "code": 400,
+                "data": None,
+                "message": "缺少录音文件"
+            }, status=400)
+        
+        # 获取录音文件
+        recording_file = request.FILES['recording']
+        
+        # 确保录音文件目录存在
+        recordings_dir = os.path.join(settings.STATIC_ROOT, 'recordings')
+        if not os.path.exists(recordings_dir):
+            os.makedirs(recordings_dir, exist_ok=True)
+        
+        # 生成文件名（使用时间戳确保唯一性）
+        timestamp = int(time.time())
+        filename = f"recording_{timestamp}.webm"
+        file_path = os.path.join(recordings_dir, filename)
+        
+        # 保存文件
+        with open(file_path, 'wb') as f:
+            for chunk in recording_file.chunks():
+                f.write(chunk)
+        
+        # 构建文件URL
+        file_url = f"/static/recordings/{filename}"
+        
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "filename": filename,
+                "file_url": file_url,
+                "file_size": os.path.getsize(file_path)
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"保存录音失败：{str(e)}"
+        }, status=500)
+
+
+@require_GET
+def get_recording_list(request):
+    """
+    获取录音文件列表的API接口
+    :param request: HTTP请求对象
+    :return: 录音文件列表的JSON响应
+    """
+    try:
+        # 检查录音文件目录是否存在
+        recordings_dir = os.path.join(settings.STATIC_ROOT, 'recordings')
+        if not os.path.exists(recordings_dir):
+            return JsonResponse({
+                "code": 200,
+                "data": {
+                    "recordings": [],
+                    "total_count": 0
+                },
+                "message": "success"
+            })
+        
+        # 获取目录中的所有录音文件
+        recording_files = []
+        for filename in os.listdir(recordings_dir):
+            if filename.endswith('.webm'):
+                file_path = os.path.join(recordings_dir, filename)
+                if os.path.isfile(file_path):
+                    # 获取文件信息
+                    file_size = os.path.getsize(file_path)
+                    modified_time = os.path.getmtime(file_path)
+                    
+                    # 构建文件URL
+                    file_url = f"/static/recordings/{filename}"
+                    
+                    # 格式化修改时间
+                    modified_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(modified_time))
+                    
+                    # 计算文件大小（转换为MB或KB）
+                    if file_size >= 1024 * 1024:
+                        size_display = f"{file_size / (1024 * 1024):.2f} MB"
+                    else:
+                        size_display = f"{file_size / 1024:.2f} KB"
+                    
+                    # 添加到列表
+                    recording_files.append({
+                        "filename": filename,
+                        "file_url": file_url,
+                        "file_size": file_size,
+                        "size_display": size_display,
+                        "modified_date": modified_date
+                    })
+        
+        # 按修改时间降序排序（最新的在前）
+        recording_files.sort(key=lambda x: os.path.getmtime(os.path.join(recordings_dir, x['filename'])), reverse=True)
+        
+        return JsonResponse({
+            "code": 200,
+            "data": {
+                "recordings": recording_files,
+                "total_count": len(recording_files)
+            },
+            "message": "success"
+        })
+    except Exception as e:
+        return JsonResponse({
+            "code": 500,
+            "data": None,
+            "message": f"获取录音列表失败：{str(e)}"
+        }, status=500)
+
 @require_GET
 def download_code_data(request):
     """

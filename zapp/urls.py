@@ -46,4 +46,8 @@ urlpatterns = [
     # WebRTC语音房间相关路由
     path('voice-room', views.voice_room, name='voice_room'),
     path('api/room/', views.room_api, name='room_api'),
+    # 录音功能相关路由
+    path('voice_recorder', views.voice_recorder, name='voice_recorder'),
+    path('api/save_recording/', views.save_recording, name='save_recording'),
+    path('api/recording_list/', views.get_recording_list, name='get_recording_list'),
 ]
