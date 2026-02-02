@@ -418,11 +418,44 @@
         // 开始录音
         startBtn.addEventListener('click', async function() {
             try {
+                // 检查安全上下文
+                if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                    const msg = '错误：浏览器限制麦克风只能在 HTTPS 或 localhost 环境下使用。当前为 HTTP 环境，无法录音。';
+                    console.error(msg);
+                    showMessage(msg, 'error');
+                    return;
+                }
+                
                 // 请求麦克风权限
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 
+                // 检查浏览器是否支持 MediaRecorder
+                if (!window.MediaRecorder) {
+                    showMessage('您的浏览器不支持录音功能，请使用 Chrome、Firefox 或 Edge 浏览器', 'error');
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
+                
                 // 创建 MediaRecorder 实例
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                // 尝试不同的 mimeType 以提高兼容性
+                let mediaRecorder;
+                const mimeTypes = ['audio/webm', 'audio/ogg', 'audio/mp4'];
+                let selectedMimeType = null;
+                
+                for (const mimeType of mimeTypes) {
+                    if (MediaRecorder.isTypeSupported(mimeType)) {
+                        selectedMimeType = mimeType;
+                        break;
+                    }
+                }
+                
+                if (!selectedMimeType) {
+                    showMessage('您的浏览器不支持任何录音格式', 'error');
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
+                
+                mediaRecorder = new MediaRecorder(stream, { mimeType: selectedMimeType });
                 
                 // 重置音频数据
                 audioChunks = [];
@@ -464,23 +497,44 @@
                 showMessage('录音已开始', 'success');
             } catch (error) {
                 console.error('开始录音失败:', error);
-                showMessage('无法访问麦克风，请检查权限设置', 'error');
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    showMessage('麦克风权限被拒绝，请允许浏览器访问麦克风', 'error');
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    showMessage('未检测到麦克风设备', 'error');
+                } else {
+                    showMessage('无法获取麦克风权限: ' + error.message, 'error');
+                }
             }
         });
 
         // 停止录音
         stopBtn.addEventListener('click', function() {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                
-                // 更新UI
+            try {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    
+                    // 更新UI
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    statusDot.classList.remove('recording');
+                    statusText.classList.remove('recording');
+                    statusText.textContent = '准备就绪';
+                    
+                    showMessage('录音已停止，正在保存...', 'success');
+                } else if (mediaRecorder) {
+                    showMessage('录音已经停止', 'error');
+                } else {
+                    showMessage('请先开始录音', 'error');
+                }
+            } catch (error) {
+                console.error('停止录音失败:', error);
+                showMessage('停止录音失败: ' + error.message, 'error');
+                // 重置UI
                 startBtn.disabled = false;
                 stopBtn.disabled = true;
                 statusDot.classList.remove('recording');
                 statusText.classList.remove('recording');
                 statusText.textContent = '准备就绪';
-                
-                showMessage('录音已停止，正在保存...', 'success');
             }
         });
 
