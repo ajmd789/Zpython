@@ -201,12 +201,38 @@
         .recording-actions {
             display: flex;
             gap: 10px;
+            width: 100%;
         }
 
         .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
+            padding: 8px 16px;
+            font-size: 14px;
             border-radius: 4px;
+            flex: 1;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .recording-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 15px;
+            }
+
+            .recording-info {
+                width: 100%;
+            }
+
+            .recording-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .btn-sm {
+                flex: 1;
+                padding: 10px 0;
+                font-size: 14px;
+            }
         }
 
         .btn-success {
