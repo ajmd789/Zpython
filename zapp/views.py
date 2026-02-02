@@ -607,8 +607,8 @@ def save_recording(request):
             for chunk in recording_file.chunks():
                 f.write(chunk)
         
-        # 构建文件URL
-        file_url = f"/static/recordings/{filename}"
+        # 构建文件URL，添加/apipy前缀
+        file_url = f"/apipy/static/recordings/{filename}"
         
         return JsonResponse({
             "code": 200,
@@ -657,8 +657,8 @@ def get_recording_list(request):
                     file_size = os.path.getsize(file_path)
                     modified_time = os.path.getmtime(file_path)
                     
-                    # 构建文件URL
-                    file_url = f"/static/recordings/{filename}"
+                    # 构建文件URL，添加/apipy前缀
+                    file_url = f"/apipy/static/recordings/{filename}"
                     
                     # 格式化修改时间
                     modified_date = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(modified_time))

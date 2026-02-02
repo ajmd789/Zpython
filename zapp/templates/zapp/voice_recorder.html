@@ -399,7 +399,13 @@
 
         // 播放录音
         function playRecording(url) {
-            const audio = new Audio(url);
+            // 修正URL路径，添加/apipy前缀
+            let correctedUrl = url;
+            if (url.startsWith('/static/')) {
+                correctedUrl = '/apipy' + url;
+            }
+            
+            const audio = new Audio(correctedUrl);
             audio.play().catch(error => {
                 console.error('播放失败:', error);
                 showMessage('播放失败，请重试', 'error');
@@ -408,9 +414,15 @@
 
         // 下载录音
         function downloadRecording(url, filename) {
+            // 修正URL路径，添加/apipy前缀
+            let correctedUrl = url;
+            if (url.startsWith('/static/')) {
+                correctedUrl = '/apipy' + url;
+            }
+            
             // 创建下载链接
             const link = document.createElement('a');
-            link.href = url;
+            link.href = correctedUrl;
             link.download = filename;
             link.click();
         }
