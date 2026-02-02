@@ -438,7 +438,6 @@
                 
                 // 创建 MediaRecorder 实例
                 // 尝试不同的 mimeType 以提高兼容性
-                let mediaRecorder;
                 const mimeTypes = ['audio/webm', 'audio/ogg', 'audio/mp4'];
                 let selectedMimeType = null;
                 
@@ -455,6 +454,7 @@
                     return;
                 }
                 
+                // 使用全局的 mediaRecorder 变量
                 mediaRecorder = new MediaRecorder(stream, { mimeType: selectedMimeType });
                 
                 // 重置音频数据
