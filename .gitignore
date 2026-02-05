@@ -71,3 +71,6 @@ accounting.db
 .wdm
 chrome_user_data
 staticfiles
+/node_modules
+frontend/node_modules/
+frontend/.swc
