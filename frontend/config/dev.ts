@@ -6,7 +6,7 @@ export default {
     stats: true
   },
   defineConstants: {
-    BASE_URL: JSON.stringify('http://localhost:10086')
+    BASE_URL: JSON.stringify('')
   },
   mini: {},
   h5: {
@@ -16,7 +16,7 @@ export default {
       compress: true,
       proxy: {
         '/apipy': {
-          target: 'http://127.0.0.1:8000',
+          target: 'http://haoguozhi.com',
           changeOrigin: true,
           pathRewrite: {
             '^/apipy': '/apipy'

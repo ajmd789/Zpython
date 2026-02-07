@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const getUserInfo = async (): Promise<boolean> => {
     try {
-      const response = await fetch('/apipy/auth/userinfo');
+      const response = await fetch('/apipy/api/auth/userinfo');
 
       // 检查响应状态
       if (!response.ok) {
@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch('/apipy/auth/login', {
+      const response = await fetch('/apipy/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -114,7 +114,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async (): Promise<boolean> => {
     try {
-      const response = await fetch('/apipy/auth/logout', {
+      const response = await fetch('/apipy/api/auth/logout', {
         method: 'POST'
       });
 
@@ -150,7 +150,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userData.phone) formData.append('phone', userData.phone);
       if (userData.nickname) formData.append('nickname', userData.nickname);
 
-      const response = await fetch('/apipy/auth/register', {
+      const response = await fetch('/apipy/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -182,7 +182,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userData.phone !== undefined) formData.append('phone', userData.phone);
       if (userData.nickname !== undefined) formData.append('nickname', userData.nickname);
 
-      const response = await fetch('/apipy/auth/update', {
+      const response = await fetch('/apipy/api/auth/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
