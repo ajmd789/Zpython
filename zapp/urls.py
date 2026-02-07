@@ -50,4 +50,11 @@ urlpatterns = [
     path('voice_recorder', views.voice_recorder, name='voice_recorder'),
     path('api/save_recording/', views.save_recording, name='save_recording'),
     path('api/recording_list/', views.get_recording_list, name='get_recording_list'),
+    # 认证相关路由
+    path('auth/register', views.register, name='register'),
+    path('auth/login', views.user_login, name='login'),
+    path('auth/logout', views.user_logout, name='logout'),
+    path('auth/userinfo', views.userinfo, name='userinfo'),
+    path('auth/update', views.update_userinfo, name='update_userinfo'),
+    path('auth/changepassword', views.change_password, name='change_password'),
 ]

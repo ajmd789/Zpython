@@ -950,3 +950,228 @@ def clear_all_code_data(request):
             "data": None,
             "message": f"清理数据失败：{str(e)}"
         }, status=500)
+
+
+# 认证相关视图
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from .models import UserProfile
+
+@csrf_exempt
+@require_POST
+def register(request):
+    """
+    用户注册接口
+    :param request: HTTP请求对象
+    :return: 注册结果的JSON响应
+    """
+    try:
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        email = request.POST.get('email', '')
+        phone = request.POST.get('phone', '')
+        nickname = request.POST.get('nickname', '')
+        
+        # 验证参数
+        if not username or not password:
+            return JsonResponse({"code": 400, "data": None, "message": "账号和密码不能为空"}, status=400)
+        
+        if len(username) < 3 or len(username) > 150:
+            return JsonResponse({"code": 400, "data": None, "message": "账号长度应在3-150字符之间"}, status=400)
+        
+        if len(password) < 6 or len(password) > 128:
+            return JsonResponse({"code": 400, "data": None, "message": "密码长度应在6-128字符之间"}, status=400)
+        
+        # 检查账号是否已存在
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({"code": 400, "data": None, "message": "账号已存在"}, status=400)
+        
+        # 检查邮箱是否已存在
+        if email and User.objects.filter(email=email).exists():
+            return JsonResponse({"code": 400, "data": None, "message": "邮箱已存在"}, status=400)
+        
+        # 检查手机号是否已存在
+        if phone and UserProfile.objects.filter(phone=phone).exists():
+            return JsonResponse({"code": 400, "data": None, "message": "手机号已存在"}, status=400)
+        
+        # 创建用户
+        user = User.objects.create_user(
+            username=username,
+            password=password,
+            email=email
+        )
+        
+        # 创建用户扩展信息
+        UserProfile.objects.create(
+            user=user,
+            phone=phone,
+            nickname=nickname
+        )
+        
+        return JsonResponse({"code": 200, "data": {"user_id": user.id, "username": user.username}, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": f"注册失败：{str(e)}"}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def user_login(request):
+    """
+    用户登录接口
+    :param request: HTTP请求对象
+    :return: 登录结果的JSON响应
+    """
+    try:
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        # 验证参数
+        if not username or not password:
+            return JsonResponse({"code": 400, "data": None, "message": "账号和密码不能为空"}, status=400)
+        
+        # 验证用户
+        user = authenticate(request, username=username, password=password)
+        if not user:
+            return JsonResponse({"code": 401, "data": None, "message": "账号或密码错误"}, status=401)
+        
+        # 登录用户
+        login(request, user)
+        
+        return JsonResponse({"code": 200, "data": {"user_id": user.id, "username": user.username}, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": f"登录失败：{str(e)}"}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def user_logout(request):
+    """
+    用户登出接口
+    :param request: HTTP请求对象
+    :return: 登出结果的JSON响应
+    """
+    try:
+        logout(request)
+        return JsonResponse({"code": 200, "data": None, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": f"登出失败：{str(e)}"}, status=500)
+
+
+@require_GET
+def userinfo(request):
+    """
+    获取用户信息接口
+    :param request: HTTP请求对象
+    :return: 用户信息的JSON响应
+    """
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({"code": 401, "data": None, "message": "未登录"}, status=401)
+        
+        user = request.user
+        try:
+            profile = user.profile
+        except UserProfile.DoesNotExist:
+            profile = UserProfile.objects.create(user=user)
+        
+        user_info = {
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email or "",
+            "phone": profile.phone or "",
+            "nickname": profile.nickname or ""
+        }
+        
+        return JsonResponse({"code": 200, "data": user_info, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": f"获取用户信息失败：{str(e)}"}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def update_userinfo(request):
+    """
+    更新用户信息接口
+    :param request: HTTP请求对象
+    :return: 更新结果的JSON响应
+    """
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({"code": 401, "data": None, "message": "未登录"}, status=401)
+        
+        user = request.user
+        email = request.POST.get('email')
+        phone = request.POST.get('phone')
+        nickname = request.POST.get('nickname')
+        
+        # 检查邮箱是否已存在
+        if email and email != user.email and User.objects.filter(email=email).exists():
+            return JsonResponse({"code": 400, "data": None, "message": "邮箱已存在"}, status=400)
+        
+        # 检查手机号是否已存在
+        try:
+            profile = user.profile
+        except UserProfile.DoesNotExist:
+            profile = UserProfile.objects.create(user=user)
+        
+        if phone and phone != profile.phone and UserProfile.objects.filter(phone=phone).exists():
+            return JsonResponse({"code": 400, "data": None, "message": "手机号已存在"}, status=400)
+        
+        # 更新用户信息
+        if email is not None:
+            user.email = email
+            user.save()
+        
+        if phone is not None:
+            profile.phone = phone
+        if nickname is not None:
+            profile.nickname = nickname
+        profile.save()
+        
+        user_info = {
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email or "",
+            "phone": profile.phone or "",
+            "nickname": profile.nickname or ""
+        }
+        
+        return JsonResponse({"code": 200, "data": user_info, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": f"更新用户信息失败：{str(e)}"}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def change_password(request):
+    """
+    修改密码接口
+    :param request: HTTP请求对象
+    :return: 修改结果的JSON响应
+    """
+    try:
+        if not request.user.is_authenticated:
+            return JsonResponse({"code": 401, "data": None, "message": "未登录"}, status=401)
+        
+        user = request.user
+        old_password = request.POST.get('old_password')
+        new_password = request.POST.get('new_password')
+        
+        # 验证参数
+        if not old_password or not new_password:
+            return JsonResponse({"code": 400, "data": None, "message": "旧密码和新密码不能为空"}, status=400)
+        
+        if len(new_password) < 6 or len(new_password) > 128:
+            return JsonResponse({"code": 400, "data": None, "message": "新密码长度应在6-128字符之间"}, status=400)
+        
+        # 验证旧密码
+        if not user.check_password(old_password):
+            return JsonResponse({"code": 400, "data": None, "message": "旧密码错误"}, status=400)
+        
+        # 修改密码
+        user.set_password(new_password)
+        user.save()
+        
+        return JsonResponse({"code": 200, "data": None, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": f"修改密码失败：{str(e)}"}, status=500)

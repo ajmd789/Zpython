@@ -2,6 +2,7 @@ import { PropsWithChildren } from 'react'
 import { useLaunch } from '@tarojs/taro'
 
 import './app.scss'
+import { AuthProvider } from './context/AuthContext'
 
 function App({ children }: PropsWithChildren<any>) {
   useLaunch(() => {
@@ -9,9 +10,12 @@ function App({ children }: PropsWithChildren<any>) {
   })
 
   // children 是将要会渲染的页面
-  return children
+  return (
+    <AuthProvider>
+      {children}
+    </AuthProvider>
+  )
 }
-  
 
 
 export default App
