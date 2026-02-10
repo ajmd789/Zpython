@@ -1,35 +1,30 @@
 import React, { useState } from 'react';
-import { View, Text, Input, Button, Textarea, Image, Navigator } from '@tarojs/components';
+import { View, Text, Input, Button, Navigator } from '@tarojs/components';
 import { redirectTo } from '@tarojs/taro';
+import { AuthLayout } from '../../components/AuthLayout';
 import './index.scss';
 
 const LoginPage: React.FC = () => {
-  const [formData, setFormData] = useState({
-    username: '',
-    password: ''
-  });
-  const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    if (error) {
-      setError('');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!username.trim()) {
+      setError('Please enter your username');
+      return;
     }
-  };
-
-  const handleLogin = async () => {
-    // 表单验证
-    if (!formData.username || !formData.password) {
-      setError('账号和密码不能为空');
+    if (!password.trim()) {
+      setError('Please enter your password');
       return;
     }
 
-    setLoading(true);
-    setError('');
+    setIsLoading(true);
 
     try {
       const response = await fetch('/apipy/auth/login', {
@@ -37,7 +32,7 @@ const LoginPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: `username=${encodeURIComponent(formData.username)}&password=${encodeURIComponent(formData.password)}`
+        body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
       });
 
       const data = await response.json();
@@ -52,56 +47,89 @@ const LoginPage: React.FC = () => {
       setError('网络错误，请稍后重试');
       console.error('Login error:', err);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <View className="login-container">
-      <Text className="logo">账号登录</Text>
-
-      <View className="login-form">
-        <View className="form-item">
-          <Text className="label">账号</Text>
-          <Input
-            className="input"
-            value={formData.username}
-            onChange={(e) => handleInputChange('username', e.detail.value)}
-            placeholder="请输入账号"
-            placeholderStyle={{ color: '#999' }}
-          />
+    <AuthLayout>
+      <View className="login-form" onSubmit={handleSubmit}>
+        <View className="login-form__header">
+          <Text className="login-form__title">Account Login</Text>
+          <Text className="login-form__subtitle">Enter your credentials to access your account</Text>
         </View>
 
-        <View className="form-item">
-          <Text className="label">密码</Text>
-          <Input
-            className="input"
-            value={formData.password}
-            onChange={(e) => handleInputChange('password', e.detail.value)}
-            placeholder="请输入密码"
-            placeholderStyle={{ color: '#999' }}
-            password
-          />
+        <View className="login-form__body">
+          <View className="login-form__input-group">
+            <Text className="login-form__label">Username</Text>
+            <View className="login-form__input-container">
+              <Text className="login-form__input-icon">👤</Text>
+              <Input
+                className="login-form__input"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.detail.value)}
+                autoComplete="username"
+                disabled={isLoading}
+              />
+            </View>
+          </View>
+
+          <View className="login-form__input-group">
+            <Text className="login-form__label">Password</Text>
+            <View className="login-form__input-container">
+              <Text className="login-form__input-icon">🔒</Text>
+              <Input
+                className="login-form__input"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.detail.value)}
+                autoComplete="current-password"
+                disabled={isLoading}
+              />
+              <Button
+                className="login-form__password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+              >
+                {showPassword ? '👁️‍🗨️' : '👁️'}
+              </Button>
+            </View>
+          </View>
+
+          {error && (
+            <View className="login-form__error">
+              <Text className="login-form__error-text">{error}</Text>
+            </View>
+          )}
+
+          <Button
+            className="login-form__submit-button"
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <View className="login-form__loading">
+                <Text className="login-form__loading-spinner">⏳</Text>
+                <Text className="login-form__loading-text">Logging in...</Text>
+              </View>
+            ) : (
+              'Login'
+            )}
+          </Button>
         </View>
 
-        {error && <Text className="error-message">{error}</Text>}
-
-        <Button
-          className="login-button"
-          onClick={handleLogin}
-          disabled={loading}
-        >
-          {loading ? '登录中...' : '登录'}
-        </Button>
-
-        <View className="register-link">
-          <Text>还没有账号？</Text>
-          <Navigator url="/pages/register/index">
-            <Text style={{ color: '#1890ff' }}>立即注册</Text>
-          </Navigator>
+        <View className="login-form__footer">
+          <Text className="login-form__footer-text">
+            Don't have an account?
+            <Navigator url="/pages/register/index">
+              <Text className="login-form__footer-link"> Register now</Text>
+            </Navigator>
+          </Text>
         </View>
       </View>
-    </View>
+    </AuthLayout>
   );
 };
 

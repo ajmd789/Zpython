@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Input, Button, Navigator } from '@tarojs/components';
 import { redirectTo } from '@tarojs/taro';
+import { AuthLayout } from '../../components/AuthLayout';
 import './index.scss';
 
 const RegisterPage: React.FC = () => {
@@ -12,43 +13,48 @@ const RegisterPage: React.FC = () => {
     phone: '',
     nickname: ''
   });
-  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const updateField = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (error) {
       setError('');
     }
   };
 
-  const handleRegister = async () => {
-    // 表单验证
-    if (!formData.username || !formData.password || !formData.confirmPassword) {
-      setError('账号、密码和确认密码不能为空');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('两次输入的密码不一致');
-      return;
-    }
-
-    if (formData.username.length < 3 || formData.username.length > 150) {
-      setError('账号长度应在3-150字符之间');
-      return;
-    }
-
-    if (formData.password.length < 6 || formData.password.length > 128) {
-      setError('密码长度应在6-128字符之间');
-      return;
-    }
-
-    setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
+
+    if (!formData.username.trim()) {
+      setError('Please enter your username');
+      return;
+    }
+    if (formData.username.length < 3 || formData.username.length > 150) {
+      setError('Username must be between 3 and 150 characters');
+      return;
+    }
+    if (!formData.password.trim()) {
+      setError('Please enter your password');
+      return;
+    }
+    if (formData.password.length < 6 || formData.password.length > 128) {
+      setError('Password must be between 6 and 128 characters');
+      return;
+    }
+    if (!formData.confirmPassword.trim()) {
+      setError('Please confirm your password');
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const formDataToSend = new URLSearchParams();
@@ -72,109 +78,184 @@ const RegisterPage: React.FC = () => {
         // 注册成功，跳转到登录页
         redirectTo({ url: '/pages/login/index' });
       } else {
-        setError(data.message || '注册失败');
+        setError(data.message || 'Registration failed');
       }
     } catch (err) {
-      setError('网络错误，请稍后重试');
+      setError('Network error, please try again later');
       console.error('Register error:', err);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <View className="register-container">
-      <Text className="logo">账号注册</Text>
-
-      <View className="register-form">
-        <View className="form-item">
-          <Text className="label">账号</Text>
-          <Input
-            className="input"
-            value={formData.username}
-            onChange={(e) => handleInputChange('username', e.detail.value)}
-            placeholder="请输入账号（3-150字符）"
-            placeholderStyle={{ color: '#999' }}
-          />
+    <AuthLayout>
+      <View className="register-form" onSubmit={handleSubmit}>
+        <View className="register-form__header">
+          <Text className="register-form__title">Create Account</Text>
+          <Text className="register-form__subtitle">Register a new account to get started</Text>
         </View>
 
-        <View className="form-item">
-          <Text className="label">密码</Text>
-          <Input
-            className="input"
-            value={formData.password}
-            onChange={(e) => handleInputChange('password', e.detail.value)}
-            placeholder="请输入密码（6-128字符）"
-            placeholderStyle={{ color: '#999' }}
-            password
-          />
+        <View className="register-form__body">
+          {/* Username - required */}
+          <View className="register-form__input-group">
+            <Text className="register-form__label">
+              Username <Text className="register-form__required">*</Text>
+            </Text>
+            <View className="register-form__input-container">
+              <Text className="register-form__input-icon">👤</Text>
+              <Input
+                className="register-form__input"
+                placeholder="3-150 characters"
+                value={formData.username}
+                onChange={(e) => updateField('username', e.detail.value)}
+                autoComplete="username"
+                disabled={isLoading}
+              />
+            </View>
+          </View>
+
+          {/* Password - required */}
+          <View className="register-form__input-group">
+            <Text className="register-form__label">
+              Password <Text className="register-form__required">*</Text>
+            </Text>
+            <View className="register-form__input-container">
+              <Text className="register-form__input-icon">🔒</Text>
+              <Input
+                className="register-form__input"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="6-128 characters"
+                value={formData.password}
+                onChange={(e) => updateField('password', e.detail.value)}
+                autoComplete="new-password"
+                disabled={isLoading}
+              />
+              <Button
+                className="register-form__password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+              >
+                {showPassword ? '👁️‍🗨️' : '👁️'}
+              </Button>
+            </View>
+          </View>
+
+          {/* Confirm Password - required */}
+          <View className="register-form__input-group">
+            <Text className="register-form__label">
+              Confirm Password <Text className="register-form__required">*</Text>
+            </Text>
+            <View className="register-form__input-container">
+              <Text className="register-form__input-icon">🔒</Text>
+              <Input
+                className="register-form__input"
+                type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="Re-enter your password"
+                value={formData.confirmPassword}
+                onChange={(e) => updateField('confirmPassword', e.detail.value)}
+                autoComplete="new-password"
+                disabled={isLoading}
+              />
+              <Button
+                className="register-form__password-toggle"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                disabled={isLoading}
+              >
+                {showConfirmPassword ? '👁️‍🗨️' : '👁️'}
+              </Button>
+            </View>
+          </View>
+
+          {/* Optional fields separator */}
+          <View className="register-form__separator">
+            <View className="register-form__separator-line" />
+            <Text className="register-form__separator-text">Optional</Text>
+            <View className="register-form__separator-line" />
+          </View>
+
+          {/* Email - optional */}
+          <View className="register-form__input-group">
+            <Text className="register-form__label">Email</Text>
+            <View className="register-form__input-container">
+              <Text className="register-form__input-icon">📧</Text>
+              <Input
+                className="register-form__input"
+                type="email"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={(e) => updateField('email', e.detail.value)}
+                autoComplete="email"
+                disabled={isLoading}
+              />
+            </View>
+          </View>
+
+          {/* Phone - optional */}
+          <View className="register-form__input-group">
+            <Text className="register-form__label">Phone</Text>
+            <View className="register-form__input-container">
+              <Text className="register-form__input-icon">📱</Text>
+              <Input
+                className="register-form__input"
+                type="tel"
+                placeholder="Enter your phone number"
+                value={formData.phone}
+                onChange={(e) => updateField('phone', e.detail.value)}
+                autoComplete="tel"
+                disabled={isLoading}
+              />
+            </View>
+          </View>
+
+          {/* Nickname - optional */}
+          <View className="register-form__input-group">
+            <Text className="register-form__label">Nickname</Text>
+            <View className="register-form__input-container">
+              <Text className="register-form__input-icon">🙋</Text>
+              <Input
+                className="register-form__input"
+                placeholder="Enter your nickname"
+                value={formData.nickname}
+                onChange={(e) => updateField('nickname', e.detail.value)}
+                autoComplete="nickname"
+                disabled={isLoading}
+              />
+            </View>
+          </View>
+
+          {error && (
+            <View className="register-form__error">
+              <Text className="register-form__error-text">{error}</Text>
+            </View>
+          )}
+
+          <Button
+            className="register-form__submit-button"
+            type="submit"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <View className="register-form__loading">
+                <Text className="register-form__loading-spinner">⏳</Text>
+                <Text className="register-form__loading-text">Registering...</Text>
+              </View>
+            ) : (
+              'Register'
+            )}
+          </Button>
         </View>
 
-        <View className="form-item">
-          <Text className="label">确认密码</Text>
-          <Input
-            className="input"
-            value={formData.confirmPassword}
-            onChange={(e) => handleInputChange('confirmPassword', e.detail.value)}
-            placeholder="请再次输入密码"
-            placeholderStyle={{ color: '#999' }}
-            password
-          />
-        </View>
-
-        <View className="form-item">
-          <Text className="label">邮箱（可选）</Text>
-          <Input
-            className="input"
-            value={formData.email}
-            onChange={(e) => handleInputChange('email', e.detail.value)}
-            placeholder="请输入邮箱"
-            placeholderStyle={{ color: '#999' }}
-            type="email"
-          />
-        </View>
-
-        <View className="form-item">
-          <Text className="label">手机号（可选）</Text>
-          <Input
-            className="input"
-            value={formData.phone}
-            onChange={(e) => handleInputChange('phone', e.detail.value)}
-            placeholder="请输入手机号"
-            placeholderStyle={{ color: '#999' }}
-            type="number"
-          />
-        </View>
-
-        <View className="form-item">
-          <Text className="label">昵称（可选）</Text>
-          <Input
-            className="input"
-            value={formData.nickname}
-            onChange={(e) => handleInputChange('nickname', e.detail.value)}
-            placeholder="请输入昵称"
-            placeholderStyle={{ color: '#999' }}
-          />
-        </View>
-
-        {error && <Text className="error-message">{error}</Text>}
-
-        <Button
-          className="register-button"
-          onClick={handleRegister}
-          disabled={loading}
-        >
-          {loading ? '注册中...' : '注册'}
-        </Button>
-
-        <View className="login-link">
-          <Text>已有账号？</Text>
-          <Navigator url="/pages/login/index">
-            <Text style={{ color: '#1890ff' }}>立即登录</Text>
-          </Navigator>
+        <View className="register-form__footer">
+          <Text className="register-form__footer-text">
+            Already have an account?
+            <Navigator url="/pages/login/index">
+              <Text className="register-form__footer-link"> Login now</Text>
+            </Navigator>
+          </Text>
         </View>
       </View>
-    </View>
+    </AuthLayout>
   );
 };
 

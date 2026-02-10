@@ -1,3 +1,160 @@
-1.任何需求，拿到后都分析一下，生成requirements.md ,然后询问我是否有要修改的地方，然后根据requirements.md生成design.md，然后询问我是否有要修改的地方，然后根据design.md，生成tasks.md，然后询问我是否有要修改的地方，然后再写代码；
-2.按照文件夹生成这些md，比如精确到2026-01-29-1点59分3秒，然后命名文件夹2026-01-29-1点59分3秒-生成秒表页面， 这个需求的md放在这个文件夹里面；
-3.生成html，接口调用可以参照zapp\templates\zapp\timestamp.html里的api格式；
+
+# 项目规约：robot_tui_demo / robot_tui_demoGUI（C++ Demo）
+
+## 规约速查 (Quick Reference)
+
+- 红线: 单文件 < 400 行 (R1) | `robot_core` 禁止依赖 UI/OS/三方图形库 (R6) | 头文件禁止 `using namespace ...` (R31)
+- 询问: 变更 public 头文件/CLI/config schema (R4) | 引入/升级第三方依赖 (R5) | 修改线程模型/引入多线程 (R12)
+- 规范: lowerCamelCase / UpperCamelCase 命名 (R13) | UTF-8 文本约定 (R26) | 资源一律 RAII 管理 (R15)
+- 流程: 任何需求先 `requirements.md`/`design.md`/`tasks.md` 并逐段确认 (R32, R33)
+- 目录: core 放 `modules/robot_core`，TUI 放 `modules/robot_tui`，GUI 放 `modules/robot_gui`，入口放 `app/` (R20)
+
+## 角色与背景
+
+- 角色: C++/Linux 工程实践专家（兼顾 macOS 开发验证）。
+- 背景: 负责“机器人应用状态流转”示例工程交付与演进；同一套核心状态机同时驱动 TUI 与 GUI 展示层。
+
+## 技术栈
+
+- 核心: C++17、STL、RAII、最小依赖。
+- 构建: CMake + Presets（见 [CMakePresets.json](CMakePresets.json)）。
+- 工具: clang-format（见 [.clang-format](.clang-format)）、clangd（见 [.clangd](.clangd)）、compile_commands.json。
+- GUI: SDL2 + OpenGL + Dear ImGui（按 preset/选项启用）。
+- TUI: termios/unistd（POSIX），终端渲染与输入分离。
+
+## 需求交付流程（MD 驱动）
+
+- (R32) 需求先文档后代码: 拿到任何需求，先分析并生成 `requirements.md`，询问是否需要修改；确认后生成 `design.md` 再询问；确认后生成 `tasks.md` 再询问；确认后才开始写代码。
+- (R33) 文档归档目录: 每个需求使用独立目录归档，目录名精确到秒：`YYYY-MM-DD-H点m分s秒-<需求简述>`（示例：`2026-01-29-1点59分3秒-生成秒表页面`）；该需求相关的 `requirements.md` / `design.md` / `tasks.md` 必须放在该目录内。
+- (R34) HTML 与接口调用: 生成 HTML 页面时，接口调用（请求格式、返回处理、错误处理）优先参照 [timestamp.html](zapp/templates/zapp/timestamp.html) 的 API 调用写法（例如 `fetch('/apipy/api/.../', { method: 'POST' })`、`response.json()`、`.catch(...)`）。
+
+## 命令
+
+- 构建:
+  - 推荐脚本: `bash scripts/build.sh tui|gui`（见 [build.sh](scripts/build.sh)）。
+  - 直接构建: `cmake --preset tui && cmake --build --preset tui -j` 或 `cmake --preset gui && cmake --build --preset gui -j`。
+- 自检/测试: `bash scripts/run_tests.sh`（见 [run_tests.sh](scripts/run_tests.sh)）。
+- 编译数据库: `./scripts/update_compdb.sh`（见 [update_compdb.sh](scripts/update_compdb.sh)）。
+- 注意: 规约与代码变更后无需强制在本地运行“全部任务”；优先保证规约可读、命令可执行、示例可复现（R17）。
+
+## 项目结构
+
+- `app/` – 程序入口与参数解析（TUI/GUI 两个可执行程序）（R21）
+- `modules/robot_core/` – 业务核心：状态机、快照、日志缓冲（R6）
+- `modules/robot_tui/` – 终端 UI：输入采集与渲染（R20）
+- `modules/robot_gui/` – GUI：SDL2/ImGui 渲染与字体加载（R20）
+- `config/` – 配置样例（见 [config.json](config/config.json)）（R22）
+- `scripts/` – 构建/自检/编译数据库脚本（R17, R23）
+- `cmake/` – CMake 辅助脚本（如编译数据库复制）（R10）
+- [README.md](README.md) – 项目说明与快速开始（R9）
+
+核心对外头文件示例（跨模块边界的“契约面”）:
+
+- [robot_app.h](modules/robot_core/include/robot_core/robot_app.h)
+- [tui_app.h](modules/robot_tui/include/robot_tui/tui_app.h)
+- [gui_app.h](modules/robot_gui/include/robot_gui/gui_app.h)
+
+## 开发规范
+
+### 代码风格与质量
+
+- (R1) 行数限制: 单文件超过 400 行必须拆分（按职责拆、按模块拆，优先保持头文件简洁）。
+- (R2) 注释: 关键状态机跃迁、协议/输入约束、资源获取释放点、并发/同步点必须有中文注释；对外 API 建议用 Doxygen 风格注释。
+- (R3) 提交前自检: 开发完成对照本规约逐条自检，列出未满足项并修复。
+- (R4) 外部契约: 变更以下内容前必须先询问并说明影响范围：
+  - public 头文件（`modules/*/include/`）签名/行为
+  - CLI 参数与默认行为（`app/` 下入口）
+  - 配置文件 schema（如 [config.json](config/config.json)）
+- (R5) 依赖: 新增/升级第三方依赖（SDL2/ImGui/JSON/网络库等）前必须说明理由、替代方案与风险并先询问。
+- (R6) 分层边界: `robot_core` 不得直接依赖 UI/GUI/TUI/OS 交互细节与第三方图形库；TUI/GUI 只能通过 core 的 API/快照协作，不得访问 core 内部实现细节。
+- (R7) 错误模型: 可恢复错误用 `bool/enum/std::optional`（或 `std::error_code`）表达；模块边界不允许异常“穿透”到上层主循环。
+- (R8) 日志与可观测性: 关键状态跃迁必须写入 core 的日志缓冲（便于两套 UI 复用同一日志）；不可恢复错误可输出到 `stderr` 并明确上下文信息。
+- (R9) 文档: 对外行为变化（CLI、配置、输出展示差异）需同步更新 [README.md](README.md) 与本规约。
+- (R10) CMake 约束: 使用 target 级别管理 include/link/compile options；禁止把编译选项与 include path 以全局方式“散落”到多个目录。
+- (R11) 资源释放: 文件/锁/终端 raw mode/SDL 资源等必须有明确获取与释放点，必须可重入、可失败、可恢复。
+- (R12) 线程模型保护: 默认单线程主循环（tick + render）；如需引入多线程或异步 I/O，必须先询问，并在设计中明确对象线程安全、队列/锁策略与主线程归属。
+- (R13) 命名: 命名空间小写（`core/robot_tui/robot_gui`）；类型 `UpperCamelCase`；函数/变量 `lowerCamelCase`；私有成员尾随下划线（`state_`）。
+- (R14) 头文件组织:
+  - 头文件使用 `#pragma once`
+  - `include/` 仅放模块对外头文件；`src/` 放实现与私有细节
+  - 尽量“include what you use”，减少传递性 include；能前置声明就前置声明
+- (R15) 所有权与 RAII: 禁止裸 `new/delete`；优先值语义与 `std::unique_ptr`；析构函数不得抛异常。
+- (R16) API 边界: 禁止在 core 的 public API 暴露 SDL/ImGui/终端控制类型；必要时用 PImpl 或自定义纯数据结构隔离。
+- (R17) 工具执行: 脚本/命令以“可复现”为准；遇到构建或环境问题，至少记录 3 次尝试与关键信息后再升级处理（日志/错误输出/系统信息）。
+- (R18) 自检与可测试性: 新增关键能力应提供最小自检入口（类似 `--selftest` / `--fonttest`），确保在 CI/无界面环境下可验证核心逻辑。
+- (R19) 安全与健壮性: 避免 UB、越界、未初始化读取；任何外部输入（参数、配置、终端输入）必须做长度/范围校验。
+- (R20) 目录规范: 新模块必须放入 `modules/<name>/{include,src}` 并提供独立 `CMakeLists.txt`；跨模块依赖必须走 target link（不要通过 include path “碰巧能编过”）。
+- (R21) 入口约束: `app/` 只做参数解析、初始化与依赖装配；禁止把业务状态机逻辑写入 `main`。
+- (R22) 配置规范: 配置文件以 UTF-8 存储；schema 要稳定、可向后兼容；新增字段需默认值与兼容策略说明。
+- (R23) clangd/编译数据库: `compile_commands.json` 必须可用；出现 IDE 误报优先检查编译数据库是否刷新与是否使用对应 preset。
+- (R24) 格式化: 必须遵守 [.clang-format](.clang-format)；提交前确保改动文件已格式化。
+- (R25) GUI 字体: GUI 需保证中文可展示；字体下载/路径/回退策略必须可控并可自检（参考 README 的字体说明）。
+- (R26) 字符串与编码: 跨模块传递文本默认 UTF-8（`std::string` 承载）；谨慎使用 `std::string_view`，禁止指向临时对象或会被修改/释放的缓冲区。
+- (R27) 性能: 禁止在渲染/事件循环主线程做长时间阻塞 I/O；需要等待时使用分帧推进或后台任务并明确同步点。
+- (R28) 状态一致性: `snapshot()` 必须是“自洽的只读视图”，不返回可变引用，不泄露内部容器可修改入口。
+- (R29) 可移植性: TUI 的 POSIX 依赖必须隔离在 `robot_tui` 内；跨平台差异用适配层封装，不在 core 散落 `#ifdef`。
+- (R30) 代码审查: 新增模块/跨模块接口变更必须经过双人 Review。
+- (R31) 命名空间规范: 头文件禁止 `using namespace ...`；`.cpp` 内如需缩短命名，仅允许在最小作用域使用 `using` 声明（优先 `using std::string;` 而非 `using namespace std;`）。
+
+### Core（业务核心）规范
+
+- 单一职责: 仅承载状态机、业务流程与可观测日志；不包含 UI/渲染/系统资源管理细节。
+- 数据结构: 对外暴露“纯数据”快照（如 `RobotSnapshot`），以便 TUI/GUI 复用。
+- 推进方式: 通过 `tick(dt)` 推进时间与跃迁；避免在 core 内部阻塞等待。
+- 输入边界: 用户输入统一通过显式 setter/事件接口进入 core，禁止直接从 stdin/SDL 事件读取。
+
+### TUI（终端）规范
+
+- 资源管理: 终端 raw mode、光标/清屏控制等必须 RAII 包装；异常或提前退出时需恢复终端状态。
+- I/O 策略: 输入采集与渲染分离；不在渲染路径做阻塞读取。
+- 兼容性: 终端中文显示依赖字体与 locale，不把“中文显示失败”当作程序错误；只保证 UTF-8 输出。
+
+### GUI（SDL2 + ImGui）规范
+
+- 生命周期: 明确 init/run/cleanup；SDL 与 OpenGL 资源必须成对释放。
+- 字体策略: 默认走“配置阶段下载 + 运行时加载”的路径；加载失败必须有回退与清晰提示，并支持 `--fonttest` 自检。
+- 边界: GUI 层只做输入适配与渲染；核心业务逻辑不得落在 GUI 层。
+
+## 文档与日志
+
+- README: 新增/修改能力、构建方式、字体策略等对外行为变化后，更新 [README.md](README.md)（R9）。
+- 变更记录: 对外行为变化需补充迁移说明（可直接追加在 README 的“变更”小节）。
+- 调试信息: 遇到难复现问题，优先在 core 日志中补充“状态 + 输入 + 时间点”，确保最小复现路径可记录（R8）。
+
+## 边界
+
+- ✅ 总是:
+  - 修改前后回顾本规约，确保 core 与 TUI/GUI 边界不被破坏（R6）。
+  - 确保格式化一致、快照自洽、资源可释放（R24, R28, R15）。
+  - 让构建/自检命令可复现，必要时更新脚本与文档（R17, R9）。
+- ⚠️ 先询问:
+  - 变更 public 头文件、CLI、配置 schema（R4）。
+  - 新增/升级第三方依赖（R5）。
+  - 引入多线程、修改线程模型或同步策略（R12）。
+- 🚫 绝不:
+  - 在 `robot_core` 中直接调用 SDL/ImGui/termios 或做终端/窗口资源管理（R6）。
+  - 在头文件写 `using namespace ...` 污染命名空间（R31）。
+  - 以“通过编译/类型检查”为目标擅自改变状态机流程语义（R3, R28）。
+
+## 自检清单（提交前）
+
+- 单文件 < 400 行（R1）
+- core 未引入 UI/OS/图形库依赖，TUI/GUI 未反向侵入 core（R6）
+- 无头文件 `using namespace ...`，`.cpp` 的 `using` 限定在最小作用域（R31）
+- public 头文件/CLI/config schema 变更已先询问并记录（R4）
+- 新增依赖已先询问并说明风险与替代（R5）
+- 自检入口可用（`--selftest` / `--fonttest` 或同等能力）（R18）
+- README/规约已同步更新（R9）
+
+## 附录：模块目录与清单
+
+- 可执行程序:
+  - `robot_tui_demo`（TUI）
+  - `robot_tui_demoGUI`（GUI）
+- 模块:
+  - `modules/robot_core`：核心状态机与快照（对外头文件集中在 `include/robot_core/`）
+  - `modules/robot_tui`：终端输入与渲染（对外头文件集中在 `include/robot_tui/`）
+  - `modules/robot_gui`：SDL2/ImGui GUI 展示（对外头文件集中在 `include/robot_gui/`）
+
+- 额外说明:
+  - 该清单用于“可寻址与可发现”；新增模块请按目录与命名规范放置，并同步更新 [README.md](README.md) 与本规约。
