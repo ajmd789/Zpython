@@ -954,6 +954,7 @@ def clear_all_code_data(request):
 
 # 认证相关视图
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from .models import UserProfile, Medication, MedicationSchedule
 

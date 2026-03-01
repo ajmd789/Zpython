@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, Input, Button, Navigator } from '@tarojs/components';
+import { View, Text, Input, Button, Image, Navigator } from '@tarojs/components';
 import { redirectTo } from '@tarojs/taro';
-import { AuthLayout } from '../../components/AuthLayout';
+import { iconUser, iconLock, iconEye, iconEyeOff, iconLoader } from '../../utils/icons';
 import './index.scss';
 
 const LoginPage: React.FC = () => {
@@ -9,7 +9,10 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+
+  // UI States
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,15 +22,19 @@ const LoginPage: React.FC = () => {
       setError('Please enter your username');
       return;
     }
-    if (!password.trim()) {
-      setError('Please enter your password');
+  };
+
+  const handleLogin = async () => {
+    if (!formData.username || !formData.password) {
+      setError('Username and password are required');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch('/apipy/auth/login', {
+      // Keep existing API logic
+      const response = await fetch(`${BASE_URL}/apipy/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -38,13 +45,12 @@ const LoginPage: React.FC = () => {
       const data = await response.json();
 
       if (data.code === 200) {
-        // 登录成功，跳转到首页
-        redirectTo({ url: '/' });
+        redirectTo({ url: '/pages/index/index' });
       } else {
-        setError(data.message || '登录失败');
+        setError(data.message || 'Login failed');
       }
     } catch (err) {
-      setError('网络错误，请稍后重试');
+      setError('Network error, please try again later');
       console.error('Login error:', err);
     } finally {
       setIsLoading(false);
@@ -52,81 +58,72 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <AuthLayout>
-      <View className="login-form" onSubmit={handleSubmit}>
-        <View className="login-form__header">
-          <Text className="login-form__title">Account Login</Text>
-          <Text className="login-form__subtitle">Enter your credentials to access your account</Text>
+    <View className="login-container">
+      <View className="login-form">
+        <View className="header">
+          <Text className="title">Account Login</Text>
+          <Text className="subtitle">Enter your credentials to access your account</Text>
         </View>
 
-        <View className="login-form__body">
-          <View className="login-form__input-group">
-            <Text className="login-form__label">Username</Text>
-            <View className="login-form__input-container">
-              <Text className="login-form__input-icon">👤</Text>
+        <View className="form-content">
+          {/* Username Field */}
+          <View className="form-item">
+            <Text className="label">Username</Text>
+            <View className={`input-wrapper ${focusedField === 'username' ? 'focused' : ''}`}>
+              <Image src={iconUser} className="input-icon left" />
               <Input
-                className="login-form__input"
+                className="taro-input"
+                value={formData.username}
+                onInput={(e) => handleInputChange('username', e.detail.value)}
+                onFocus={() => setFocusedField('username')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.detail.value)}
-                autoComplete="username"
-                disabled={isLoading}
+                placeholderClass="placeholder"
               />
             </View>
           </View>
 
-          <View className="login-form__input-group">
-            <Text className="login-form__label">Password</Text>
-            <View className="login-form__input-container">
-              <Text className="login-form__input-icon">🔒</Text>
+          {/* Password Field */}
+          <View className="form-item">
+            <Text className="label">Password</Text>
+            <View className={`input-wrapper ${focusedField === 'password' ? 'focused' : ''}`}>
+              <Image src={iconLock} className="input-icon left" />
               <Input
-                className="login-form__input"
-                type={showPassword ? 'text' : 'password'}
+                className="taro-input"
+                value={formData.password}
+                password={!showPassword}
+                onInput={(e) => handleInputChange('password', e.detail.value)}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.detail.value)}
-                autoComplete="current-password"
-                disabled={isLoading}
+                placeholderClass="placeholder"
               />
-              <Button
-                className="login-form__password-toggle"
+              <View
+                className="input-icon right-clickable"
                 onClick={() => setShowPassword(!showPassword)}
-                disabled={isLoading}
               >
-                {showPassword ? '👁️‍🗨️' : '👁️'}
-              </Button>
+                <Image src={showPassword ? iconEyeOff : iconEye} className="icon-img" />
+              </View>
             </View>
           </View>
 
-          {error && (
-            <View className="login-form__error">
-              <Text className="login-form__error-text">{error}</Text>
-            </View>
-          )}
+          {error && <View className="error-alert"><Text className="error-text">{error}</Text></View>}
 
           <Button
-            className="login-form__submit-button"
-            type="submit"
-            disabled={isLoading}
+            className={`login-button ${loading ? 'loading' : ''}`}
+            onClick={handleLogin}
+            disabled={loading}
           >
-            {isLoading ? (
-              <View className="login-form__loading">
-                <Text className="login-form__loading-spinner">⏳</Text>
-                <Text className="login-form__loading-text">Logging in...</Text>
-              </View>
-            ) : (
-              'Login'
-            )}
+            {loading && <Image src={iconLoader} className="spinner" />}
+            <Text>{loading ? 'Logging in...' : 'Login'}</Text>
           </Button>
         </View>
 
-        <View className="login-form__footer">
-          <Text className="login-form__footer-text">
-            Don't have an account?
-            <Navigator url="/pages/register/index">
-              <Text className="login-form__footer-link"> Register now</Text>
-            </Navigator>
-          </Text>
+        <View className="footer">
+          <Text className="footer-text">Don't have an account? </Text>
+          <Navigator url="/pages/register/index" className="link-navigator">
+            <Text className="link">Register now</Text>
+          </Navigator>
         </View>
       </View>
     </AuthLayout>
