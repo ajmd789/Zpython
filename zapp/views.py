@@ -955,7 +955,7 @@ def clear_all_code_data(request):
 # 认证相关视图
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from .models import UserProfile
+from .models import UserProfile, Medication, MedicationSchedule
 
 @csrf_exempt
 @require_POST
@@ -1175,3 +1175,190 @@ def change_password(request):
         return JsonResponse({"code": 200, "data": None, "message": "success"})
     except Exception as e:
         return JsonResponse({"code": 500, "data": None, "message": f"修改密码失败：{str(e)}"}, status=500)
+
+
+# Medication related imports
+import json
+from .services.medication_service import medication_service
+from datetime import datetime, timedelta
+from django.utils import timezone
+
+def _get_medication_user_id(request):
+    """Helper to get user ID from request (Auth user or Guest header)"""
+    if request.user.is_authenticated:
+        return str(request.user.id)
+    return request.headers.get('X-Guest-ID')
+
+def medication_tracker(request):
+    """用药提醒页面"""
+    return render(request, 'zapp/medication_tracker.html')
+
+@csrf_exempt
+@require_POST
+def api_save_medication(request):
+    """保存药品信息（新增或修改）"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+            
+        data = json.loads(request.body) if request.body else request.POST
+        medication_id = data.get('id')
+        
+        # 简单校验
+        if not data.get('name'):
+             return JsonResponse({'code': 400, 'message': 'Name is required'}, status=400)
+
+        if medication_id:
+            # Update
+            medication_service.update_medication(user_id, medication_id, data)
+            new_id = medication_id
+        else:
+            # Create
+            new_id = medication_service.create_medication(user_id, data)
+            
+        return JsonResponse({'code': 200, 'data': {'id': new_id}, 'message': 'success'})
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+@require_GET
+def api_get_medications(request):
+    """获取用户所有药品"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+
+        medications = medication_service.get_user_medications(user_id)
+        return JsonResponse({'code': 200, 'data': medications, 'message': 'success'})
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def api_delete_medication(request):
+    """删除药品"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+
+        data = json.loads(request.body) if request.body else request.POST
+        medication_id = data.get('id')
+        medication_service.delete_medication(user_id, medication_id)
+        return JsonResponse({'code': 200, 'message': 'success'})
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def api_save_schedule(request):
+    """保存服药计划"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+
+        data = json.loads(request.body) if request.body else request.POST
+        medication_service.create_schedule(user_id, data)
+        return JsonResponse({'code': 200, 'message': 'success'})
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def api_delete_schedule(request):
+    """删除服药计划"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+
+        data = json.loads(request.body) if request.body else request.POST
+        schedule_id = data.get('id')
+        medication_service.delete_schedule(user_id, schedule_id)
+        return JsonResponse({'code': 200, 'message': 'success'})
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+@require_GET
+def api_get_daily_schedule(request):
+    """获取每日服药计划"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+
+        date_str = request.GET.get('date')
+        if date_str:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        else:
+            date_obj = timezone.now().date()
+            
+        schedules = medication_service.get_daily_schedule(user_id, date_obj)
+        return JsonResponse({'code': 200, 'data': schedules, 'message': 'success'})
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def api_mark_taken(request):
+    """打卡"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+
+        data = json.loads(request.body) if request.body else request.POST
+        schedule_id = data.get('schedule_id')
+        date_str = data.get('date')
+        
+        result = medication_service.mark_taken(schedule_id, date_str)
+        if result['success']:
+            return JsonResponse({'code': 200, 'data': result, 'message': 'success'})
+        else:
+            return JsonResponse({'code': 400, 'message': result.get('message', 'Failed')}, status=400)
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def api_undo_taken(request):
+    """撤销打卡"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+
+        data = json.loads(request.body) if request.body else request.POST
+        schedule_id = data.get('schedule_id')
+        date_str = data.get('date')
+        
+        result = medication_service.undo_taken(schedule_id, date_str)
+        if result['success']:
+            return JsonResponse({'code': 200, 'data': result, 'message': 'success'})
+        else:
+            return JsonResponse({'code': 400, 'message': result.get('message', 'Failed')}, status=400)
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+@require_GET
+def api_get_weekly_report(request):
+    """获取周报表"""
+    try:
+        user_id = _get_medication_user_id(request)
+        if not user_id:
+            return JsonResponse({'code': 401, 'message': 'Unauthorized'}, status=401)
+
+        start_date_str = request.GET.get('start_date')
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        else:
+            # 默认取本周一
+            today = timezone.now().date()
+            start_date = today - timedelta(days=today.weekday())
+            
+        report = medication_service.get_weekly_report(user_id, start_date)
+        return JsonResponse({'code': 200, 'data': report, 'message': 'success'})
+    except Exception as e:
+        return JsonResponse({'code': 500, 'message': str(e)}, status=500)

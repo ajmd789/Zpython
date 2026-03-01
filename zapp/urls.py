@@ -50,6 +50,17 @@ urlpatterns = [
     path('voice_recorder', views.voice_recorder, name='voice_recorder'),
     path('api/save_recording/', views.save_recording, name='save_recording'),
     path('api/recording_list/', views.get_recording_list, name='get_recording_list'),
+    # Medication Reminder
+    path('medication_tracker', views.medication_tracker, name='medication_tracker'),
+    path('api/medication/list/', views.api_get_medications, name='api_get_medications'),
+    path('api/medication/save/', views.api_save_medication, name='api_save_medication'),
+    path('api/medication/delete/', views.api_delete_medication, name='api_delete_medication'),
+    path('api/medication/schedule/save/', views.api_save_schedule, name='api_save_schedule'),
+    path('api/medication/schedule/delete/', views.api_delete_schedule, name='api_delete_schedule'),
+    path('api/medication/schedule/daily/', views.api_get_daily_schedule, name='api_get_daily_schedule'),
+    path('api/medication/record/mark/', views.api_mark_taken, name='api_mark_taken'),
+    path('api/medication/record/undo/', views.api_undo_taken, name='api_undo_taken'),
+    path('api/medication/stats/weekly/', views.api_get_weekly_report, name='api_get_weekly_report'),
     # 认证相关路由
     path('auth/register', views.register, name='register'),
     path('auth/login', views.user_login, name='login'),
