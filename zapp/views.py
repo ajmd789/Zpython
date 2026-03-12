@@ -230,6 +230,8 @@ def heartbeat_api(request):
         device_name: 设备名称
         timestamp: 时间戳 (可选，如果不传则使用服务器时间)
     """
+    import sqlite3
+    import os
     try:
         # 尝试从 JSON body 解析
         if request.content_type == 'application/json':
@@ -258,37 +260,67 @@ def heartbeat_api(request):
             try:
                 # 支持秒或毫秒
                 ts = float(ts)
-                # 简单判断：如果大于 300亿，认为是毫秒（30000000000 约对应 2920年，这里取个大概界限，其实 2023年是 1.67e9，毫秒是 1.67e12）
-                # 更准确的判断：当前时间戳大约是 10位（秒）或 13位（毫秒）
                 if ts > 10000000000: # 大于 100亿，认为是毫秒
                     ts = ts / 1000.0
                 
-                # 转为带时区的 datetime
-                # 注意：fromtimestamp 默认返回本地时间，如果 settings.USE_TZ=True，需要 make_aware
-                # 但 fromtimestamp(ts, tz) 可以直接指定时区
                 try:
-                    heartbeat_time = datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
+                    heartbeat_time_obj = datetime.datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
                 except AttributeError:
-                    # 如果 datetime 是模块而不是类（取决于导入方式）
                     import datetime as dt_module
-                    heartbeat_time = dt_module.datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
+                    heartbeat_time_obj = dt_module.datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
+                
+                heartbeat_time = heartbeat_time_obj.strftime('%Y-%m-%d %H:%M:%S')
             except (ValueError, TypeError):
-                heartbeat_time = timezone.now()
+                heartbeat_time = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
         else:
-            heartbeat_time = timezone.now()
+            heartbeat_time = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        # 更新或创建设备记录
-        device, created = Device.objects.get_or_create(name=device_name)
-        device.ip_address = ip
-        device.last_heartbeat = heartbeat_time
-        device.save() 
+        # 数据库路径，与 pythongetip 保持一致
+        if os.name == 'nt':
+            db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
+        else:
+            db_path = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+
+        # 连接数据库并创建表（如果不存在）
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            # 创建 zapp_device 表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS zapp_device (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    last_heartbeat TEXT,
+                    ip_address TEXT,
+                    status TEXT DEFAULT 'offline'
+                )
+            ''')
+            
+            # 检查设备是否存在
+            cursor.execute('SELECT id FROM zapp_device WHERE name = ?', (device_name,))
+            row = cursor.fetchone()
+            
+            if row:
+                # 更新
+                cursor.execute('''
+                    UPDATE zapp_device 
+                    SET last_heartbeat = ?, ip_address = ?, status = 'online'
+                    WHERE name = ?
+                ''', (heartbeat_time, ip, device_name))
+            else:
+                # 插入
+                cursor.execute('''
+                    INSERT INTO zapp_device (name, last_heartbeat, ip_address, status)
+                    VALUES (?, ?, ?, 'online')
+                ''', (device_name, heartbeat_time, ip))
+            
+            conn.commit()
 
         return JsonResponse({
             "code": 200, 
             "data": {
-                "device_name": device.name, 
+                "device_name": device_name, 
                 "status": "online",
-                "last_heartbeat": device.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S')
+                "last_heartbeat": heartbeat_time
             }, 
             "message": "Heartbeat received"
         })
@@ -300,16 +332,77 @@ def heartbeat_api(request):
 @require_GET
 def get_devices_api(request):
     """获取所有设备列表及其在线状态"""
+    import sqlite3
+    import os
     try:
-        devices = Device.objects.all().order_by('-last_heartbeat')
-        data = []
-        for d in devices:
-            data.append({
-                "name": d.name,
-                "last_heartbeat": d.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') if d.last_heartbeat else None,
-                "ip_address": d.ip_address,
-                "status": "online" if d.is_online else "offline"
-            })
+        # 数据库路径
+        if os.name == 'nt':
+            db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
+        else:
+            db_path = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
+            
+        with sqlite3.connect(db_path) as conn:
+            # 以字典形式返回行
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # 确保表存在，防止首次查询报错
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS zapp_device (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    last_heartbeat TEXT,
+                    ip_address TEXT,
+                    status TEXT DEFAULT 'offline'
+                )
+            ''')
+            
+            cursor.execute('SELECT * FROM zapp_device ORDER BY last_heartbeat DESC')
+            rows = cursor.fetchall()
+            
+            data = []
+            now = timezone.now()
+            
+            for row in rows:
+                last_hb_str = row['last_heartbeat']
+                is_online = False
+                
+                # 计算在线状态 (5分钟内)
+                if last_hb_str:
+                    try:
+                        # 尝试解析时间字符串
+                        try:
+                            hb_time = datetime.datetime.strptime(last_hb_str, '%Y-%m-%d %H:%M:%S')
+                        except AttributeError:
+                             import datetime as dt_module
+                             hb_time = dt_module.datetime.strptime(last_hb_str, '%Y-%m-%d %H:%M:%S')
+                        
+                        # 如果存储的是 UTC 时间（简单起见，这里假设存储的是本地时间，因为我们用了 timezone.now()）
+                        # 如果需要严谨的时区处理，需要更多逻辑。这里简化处理：
+                        # 将 hb_time 视为 naive (无时区)，now 也转为 naive 进行比较，或者都视为 UTC
+                        # 由于 timezone.now() 是带时区的，我们把它转为 naive (或者直接比较时间差)
+                        
+                        # 简单起见，直接用当前时间字符串比较（不推荐，但为了兼容性...）
+                        # 更好的做法：将 now 转为 naive
+                        if timezone.is_aware(hb_time):
+                            hb_time = timezone.make_naive(hb_time)
+                        
+                        now_naive = timezone.now()
+                        if timezone.is_aware(now_naive):
+                            now_naive = timezone.make_naive(now_naive)
+                            
+                        if (now_naive - hb_time).total_seconds() < 300: # 5分钟
+                            is_online = True
+                    except Exception:
+                        pass # 解析失败视为离线
+                
+                data.append({
+                    "name": row['name'],
+                    "last_heartbeat": last_hb_str,
+                    "ip_address": row['ip_address'],
+                    "status": "online" if is_online else "offline"
+                })
+                
         return JsonResponse({"code": 200, "data": data, "message": "success"})
     except Exception as e:
         return JsonResponse({"code": 500, "data": None, "message": str(e)})
