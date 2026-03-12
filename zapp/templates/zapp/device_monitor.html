@@ -171,7 +171,7 @@
         let refreshInterval;
 
         function fetchDevices() {
-            fetch('/api/devices/')
+            fetch('/apipy/api/devices/')
                 .then(response => response.json())
                 .then(data => {
                     if (data.code === 200) {
