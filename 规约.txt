@@ -10,6 +10,7 @@
 - 规范: Python `snake_case`/`UpperCamelCase` (R13) | UTF-8 文本约定 (R26) | 资源用 `with`/上下文管理器 (R15)
 - 流程: 任何需求先 `requirements.md`/`design.md`/`tasks.md` 并逐段确认 (R32, R33)
 - 分层: 视图/消费者只做适配；业务逻辑集中在 `zapp/services/` (R6, R21)
+- 新增接口: 使用 `sqlite3` 原生连接 + 自动建表 + `/apipy/` 前缀 (R35-R38)
 
 ## 角色与背景
 
@@ -104,6 +105,16 @@
 - 房间状态: 房间/槽位的加入离开必须幂等；断线重连需可恢复到一致状态（R28）。
 - 超时与清理: 必须定义心跳/超时策略与清理路径；避免僵尸房间长期占用资源（R11）。
 
+### 新增接口开发规约 (SQLite + API)
+
+- (R35) **数据库连接**: 禁止使用 Django ORM (`models.py`) 定义新表。必须使用原生 `import sqlite3` 连接数据库，路径统一使用 `accounting.db`（需兼容 Windows/Linux 路径）。
+- (R36) **自动建表**: 接口逻辑中**必须**包含 `CREATE TABLE IF NOT EXISTS` 语句。确保首次调用接口时自动创建表，禁止依赖 `python manage.py migrate` 命令。
+- (R37) **数据云端化**: 禁止在本地生成、修改或提交 `.sqlite3` 或 `.db` 文件。本地开发仅测试逻辑，数据文件（`accounting.db`）视为仅存在于云端服务器。
+- (R38) **接口路径与安全**:
+    - 所有 API 路径必须以 `/apipy/` 开头（例如 `/apipy/api/heartbeat/`），否则会被 Nginx/路由拦截。
+    - POST 接口必须使用 `@csrf_exempt` 装饰器。
+    - 返回格式统一为 `JsonResponse({"code": 200, "data": ..., "message": "..."})`。
+
 ## 边界
 
 - ✅ 总是:
@@ -118,6 +129,7 @@
   - 在模板/前端写入密钥、或把敏感信息写进日志（R19, R8）。
   - 让异常堆栈/内部路径作为对外错误返回（R7）。
   - 绕过 service 直接在 view/consumer/模板里堆业务逻辑（R6）。
+  - **违反 (R35-R38) 规约使用 Django ORM 或本地提交 SQLite 文件**。
 
 ## 自检清单（提交前）
 
@@ -128,3 +140,4 @@
 - 无敏感信息进入仓库与日志；对外错误不泄露堆栈（R19, R8, R7）
 - 新能力具备最小可自动化验证入口（R18）
 - README/规约已同步更新（R9）
+- **新增接口符合 R35-R38 规约（原生 SQLite + 自动建表 + /apipy/ 前缀）**
