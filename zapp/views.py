@@ -214,6 +214,112 @@ def static_file_access(request, file_path):
             return JsonResponse({"code": 500, "data": None, "message": f"服务器错误：{str(e)}"}, status=500)
 
 
+# --- 设备心跳监控相关接口 ---
+
+from .models import Device
+import json
+from django.utils import timezone
+import datetime
+
+@csrf_exempt
+@require_POST
+def heartbeat_api(request):
+    """
+    接收设备心跳上报
+    参数:
+        device_name: 设备名称
+        timestamp: 时间戳 (可选，如果不传则使用服务器时间)
+    """
+    try:
+        # 尝试从 JSON body 解析
+        if request.content_type == 'application/json':
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                 return JsonResponse({"code": 400, "data": None, "message": "Invalid JSON"})
+        else:
+            # 尝试从 POST 表单解析
+            data = request.POST
+
+        device_name = data.get('device_name')
+        if not device_name:
+            return JsonResponse({"code": 400, "data": None, "message": "Missing 'device_name'"})
+
+        # 获取IP地址
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+
+        # 处理时间戳
+        ts = data.get('timestamp')
+        if ts:
+            try:
+                # 支持秒或毫秒
+                ts = float(ts)
+                # 简单判断：如果大于 300亿，认为是毫秒（30000000000 约对应 2920年，这里取个大概界限，其实 2023年是 1.67e9，毫秒是 1.67e12）
+                # 更准确的判断：当前时间戳大约是 10位（秒）或 13位（毫秒）
+                if ts > 10000000000: # 大于 100亿，认为是毫秒
+                    ts = ts / 1000.0
+                
+                # 转为带时区的 datetime
+                # 注意：fromtimestamp 默认返回本地时间，如果 settings.USE_TZ=True，需要 make_aware
+                # 但 fromtimestamp(ts, tz) 可以直接指定时区
+                try:
+                    heartbeat_time = datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
+                except AttributeError:
+                    # 如果 datetime 是模块而不是类（取决于导入方式）
+                    import datetime as dt_module
+                    heartbeat_time = dt_module.datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
+            except (ValueError, TypeError):
+                heartbeat_time = timezone.now()
+        else:
+            heartbeat_time = timezone.now()
+
+        # 更新或创建设备记录
+        device, created = Device.objects.get_or_create(name=device_name)
+        device.ip_address = ip
+        device.last_heartbeat = heartbeat_time
+        device.save() 
+
+        return JsonResponse({
+            "code": 200, 
+            "data": {
+                "device_name": device.name, 
+                "status": "online",
+                "last_heartbeat": device.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S')
+            }, 
+            "message": "Heartbeat received"
+        })
+
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": str(e)})
+
+
+@require_GET
+def get_devices_api(request):
+    """获取所有设备列表及其在线状态"""
+    try:
+        devices = Device.objects.all().order_by('-last_heartbeat')
+        data = []
+        for d in devices:
+            data.append({
+                "name": d.name,
+                "last_heartbeat": d.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') if d.last_heartbeat else None,
+                "ip_address": d.ip_address,
+                "status": "online" if d.is_online else "offline"
+            })
+        return JsonResponse({"code": 200, "data": data, "message": "success"})
+    except Exception as e:
+        return JsonResponse({"code": 500, "data": None, "message": str(e)})
+
+
+def device_monitor(request):
+    """设备监控页面"""
+    return render(request, 'zapp/device_monitor.html')
+
+
 @csrf_exempt
 @require_POST
 def pythongetip(request):

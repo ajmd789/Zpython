@@ -85,3 +85,26 @@ class MedicationRecord(models.Model):
     def __str__(self):
         return f'{self.schedule.medication.name} - {self.date} - {self.get_status_display()}'
 
+
+class Device(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name="设备名称")
+    last_heartbeat = models.DateTimeField(null=True, blank=True, verbose_name="最后心跳时间")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP地址")
+    status = models.CharField(max_length=20, default='offline', verbose_name="状态")
+
+    class Meta:
+        verbose_name = '设备监控'
+        verbose_name_plural = '设备监控'
+
+    def __str__(self):
+        return f'{self.name} ({self.status})'
+
+    @property
+    def is_online(self):
+        import datetime
+        from django.utils import timezone
+        if not self.last_heartbeat:
+            return False
+        # 如果最后心跳在 5 分钟内，视为在线
+        return timezone.now() - self.last_heartbeat < datetime.timedelta(minutes=5)
+

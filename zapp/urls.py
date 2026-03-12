@@ -68,4 +68,8 @@ urlpatterns = [
     path('auth/userinfo', views.userinfo, name='userinfo'),
     path('auth/update', views.update_userinfo, name='update_userinfo'),
     path('auth/changepassword', views.change_password, name='change_password'),
+    # 设备心跳监控
+    path('api/heartbeat/', views.heartbeat_api, name='heartbeat_api'),
+    path('api/devices/', views.get_devices_api, name='get_devices_api'),
+    path('device_monitor', views.device_monitor, name='device_monitor'),
 ]
