@@ -413,6 +413,11 @@ def device_monitor(request):
     return render(request, 'zapp/device_monitor.html')
 
 
+def heartbeat_docs(request):
+    """设备心跳接口文档页面"""
+    return render(request, 'zapp/heartbeat_docs.html')
+
+
 @csrf_exempt
 @require_POST
 def pythongetip(request):
