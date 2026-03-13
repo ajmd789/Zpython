@@ -391,7 +391,12 @@ def get_devices_api(request):
                         if timezone.is_aware(now_naive):
                             now_naive = timezone.make_naive(now_naive)
                             
-                        if (now_naive - hb_time).total_seconds() < 300: # 5分钟
+                        # 计算时间差（秒）
+                        time_diff = (now_naive - hb_time).total_seconds()
+                        
+                        # 如果时间差在合理范围内（0到300秒），视为在线
+                        # 考虑到设备时间可能略微超前，允许 -30 秒的误差
+                        if -30 < time_diff < 300: 
                             is_online = True
                     except Exception:
                         pass # 解析失败视为离线
