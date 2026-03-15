@@ -44,10 +44,10 @@ def find_django_process():
                 # 将命令行转换为字符串，便于搜索
                 cmd_str = ' '.join(cmdline)
                 # 查找Django进程：包含manage.py或runserver或gunicorn或daphne的进程
-                if 'manage.py' in cmd_str or 'runserver' in cmd_str or 'gunicorn' in cmd_str or 'daphne' in cmd_str:
+                if 'manage.py' in cmd_str or 'runserver' in cmd_str or 'gunicorn' in cmd_str or 'daphne' in cmd_str or 'grpc_server.py' in cmd_str:
                     django_processes.append(proc)
                     # 确定主进程（包含manage.py或gunicorn或daphne的进程）
-                    if any('manage.py' in arg for arg in cmdline) or any('gunicorn' in arg for arg in cmdline) or any('daphne' in arg for arg in cmdline):
+                    if any('manage.py' in arg for arg in cmdline) or any('gunicorn' in arg for arg in cmdline) or any('daphne' in arg for arg in cmdline) or any('grpc_server.py' in arg for arg in cmdline):
                         main_pid = proc.pid
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue

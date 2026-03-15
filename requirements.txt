@@ -40,3 +40,5 @@ Django==5.2.9
 gunicorn==23.0.0
 channels==4.1.0
 daphne==4.1.0
+grpcio==1.74.0
+protobuf==5.29.5

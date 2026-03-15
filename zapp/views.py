@@ -220,6 +220,7 @@ from .models import Device
 import json
 from django.utils import timezone
 import datetime
+from zapp.services.heartbeat_service import report_heartbeat, get_db_path
 
 @csrf_exempt
 @require_POST
@@ -230,100 +231,33 @@ def heartbeat_api(request):
         device_name: 设备名称
         timestamp: 时间戳 (可选，如果不传则使用服务器时间)
     """
-    import sqlite3
-    import os
     try:
-        # 尝试从 JSON body 解析
-        if request.content_type == 'application/json':
+        if request.content_type and 'application/json' in request.content_type:
             try:
                 data = json.loads(request.body)
             except json.JSONDecodeError:
-                 return JsonResponse({"code": 400, "data": None, "message": "Invalid JSON"})
+                return JsonResponse({"code": 400, "data": None, "message": "Invalid JSON"})
         else:
-            # 尝试从 POST 表单解析
             data = request.POST
 
-        device_name = data.get('device_name')
-        if not device_name:
-            return JsonResponse({"code": 400, "data": None, "message": "Missing 'device_name'"})
-
-        # 获取IP地址
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             ip = x_forwarded_for.split(',')[0]
         else:
             ip = request.META.get('REMOTE_ADDR')
-
-        # 处理时间戳
-        ts = data.get('timestamp')
-        if ts:
-            try:
-                # 支持秒或毫秒
-                ts = float(ts)
-                if ts > 10000000000: # 大于 100亿，认为是毫秒
-                    ts = ts / 1000.0
-                
-                try:
-                    heartbeat_time_obj = datetime.datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
-                except AttributeError:
-                    import datetime as dt_module
-                    heartbeat_time_obj = dt_module.datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
-                
-                heartbeat_time = heartbeat_time_obj.strftime('%Y-%m-%d %H:%M:%S')
-            except (ValueError, TypeError):
-                heartbeat_time = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
-        else:
-            heartbeat_time = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        # 数据库路径，与 pythongetip 保持一致
-        if os.name == 'nt':
-            db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
-        else:
-            db_path = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
-
-        # 连接数据库并创建表（如果不存在）
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            # 创建 zapp_device 表
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS zapp_device (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL UNIQUE,
-                    last_heartbeat TEXT,
-                    ip_address TEXT,
-                    status TEXT DEFAULT 'offline'
-                )
-            ''')
-            
-            # 检查设备是否存在
-            cursor.execute('SELECT id FROM zapp_device WHERE name = ?', (device_name,))
-            row = cursor.fetchone()
-            
-            if row:
-                # 更新
-                cursor.execute('''
-                    UPDATE zapp_device 
-                    SET last_heartbeat = ?, ip_address = ?, status = 'online'
-                    WHERE name = ?
-                ''', (heartbeat_time, ip, device_name))
-            else:
-                # 插入
-                cursor.execute('''
-                    INSERT INTO zapp_device (name, last_heartbeat, ip_address, status)
-                    VALUES (?, ?, ?, 'online')
-                ''', (device_name, heartbeat_time, ip))
-            
-            conn.commit()
+        heartbeat_data = report_heartbeat(
+            device_name=data.get('device_name'),
+            timestamp=data.get('timestamp'),
+            ip_address=ip,
+        )
 
         return JsonResponse({
-            "code": 200, 
-            "data": {
-                "device_name": device_name, 
-                "status": "online",
-                "last_heartbeat": heartbeat_time
-            }, 
+            "code": 200,
+            "data": heartbeat_data,
             "message": "Heartbeat received"
         })
+    except ValueError as e:
+        return JsonResponse({"code": 400, "data": None, "message": str(e)})
 
     except Exception as e:
         return JsonResponse({"code": 500, "data": None, "message": str(e)})
@@ -333,14 +267,8 @@ def heartbeat_api(request):
 def get_devices_api(request):
     """获取所有设备列表及其在线状态"""
     import sqlite3
-    import os
     try:
-        # 数据库路径
-        if os.name == 'nt':
-            db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'accounting.db')
-        else:
-            db_path = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
-            
+        db_path = get_db_path()
         with sqlite3.connect(db_path) as conn:
             # 以字典形式返回行
             conn.row_factory = sqlite3.Row
@@ -421,6 +349,11 @@ def device_monitor(request):
 def heartbeat_docs(request):
     """设备心跳接口文档页面"""
     return render(request, 'zapp/heartbeat_docs.html')
+
+
+def heartbeat_docs2(request):
+    """接口文档2页面"""
+    return render(request, 'zapp/heartbeat_docs2.html')
 
 
 @csrf_exempt

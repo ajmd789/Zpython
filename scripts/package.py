@@ -26,6 +26,7 @@ if sys.version_info[0] < 3:
 PROJECT_NAME = "zpython_django"  # 项目名称
 DJANGO_ENTRY = "manage.py"       # Django入口文件
 PORT = 5555                      # 部署端口
+GRPC_PORT = 50051               # gRPC部署端口
 CHECK_URL = f"http://127.0.0.1:{PORT}/index/"  # 服务校验URL
 ASSETS_DIR = "assets"            # 静态资源目录
 DB_FILE = "db.sqlite3"           # 数据库文件
@@ -306,6 +307,7 @@ echo "已切换到工作目录: $(pwd)"
 
 echo "=== 启动Django生产服务器（Daphne/ASGI） ==="
 echo "监听地址: {GUNICORN_BIND}"
+echo "gRPC监听端口: {GRPC_PORT}"
 echo "超时时间: {GUNICORN_TIMEOUT}秒"
 echo ""
 
@@ -354,6 +356,25 @@ else
     exit 1
 fi
 
+echo "正在启动gRPC服务..."
+export GRPC_HEARTBEAT_PORT={GRPC_PORT}
+python grpc_server.py > grpc_start.log 2>&1 &
+
+GRPC_PID=$!
+echo "gRPC进程ID: $GRPC_PID"
+sleep 2
+
+if kill -0 $GRPC_PID 2>/dev/null; then
+    echo "gRPC启动成功！"
+    echo "gRPC地址: 0.0.0.0:{GRPC_PORT}"
+    echo "日志文件: grpc_start.log"
+else
+    echo "✗ gRPC启动失败！"
+    echo "查看错误日志:"
+    tail -n 20 grpc_start.log
+    exit 1
+fi
+
 # 启动服务监控脚本
 echo "启动服务监控脚本..."
 python monitor_server.py > monitor_start.log 2>&1 &
@@ -388,6 +409,10 @@ pkill -f daphne
 echo "停止监控脚本..."
 pkill -f monitor_server.py
 
+# 停止gRPC脚本
+echo "停止gRPC服务..."
+pkill -f grpc_server.py
+
 # 等待进程结束
 sleep 2
 
@@ -395,13 +420,15 @@ sleep 2
 echo "检查残留进程..."
 remaining_daphne=$(pgrep -f daphne | wc -l)
 remaining_monitor=$(pgrep -f monitor_server.py | wc -l)
+remaining_grpc=$(pgrep -f grpc_server.py | wc -l)
 
-if [ $remaining_daphne -eq 0 ] && [ $remaining_monitor -eq 0 ]; then
+if [ $remaining_daphne -eq 0 ] && [ $remaining_monitor -eq 0 ] && [ $remaining_grpc -eq 0 ]; then
     echo "所有服务已停止"
 else
     echo "发现残留进程，强制终止..."
     pkill -9 -f daphne
     pkill -9 -f monitor_server.py
+    pkill -9 -f grpc_server.py
     echo "残留进程已终止"
 fi
 
@@ -486,6 +513,26 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 """
+
+    grpc_service = f"""[Unit]
+Description=Zpython gRPC Heartbeat Service
+After=network.target zpython.service
+
+[Service]
+Type=simple
+User={user}
+Group={user}
+WorkingDirectory={PROJECT_ROOT}
+Environment=DJANGO_SETTINGS_MODULE=zproject.settings
+Environment=GRPC_HEARTBEAT_PORT={GRPC_PORT}
+ExecStartPre=/bin/sleep 5
+ExecStart={PROJECT_ROOT}/{VENV_NAME}/bin/python {PROJECT_ROOT}/grpc_server.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+"""
     
     # 一键安装脚本
     install_script = f"""#!/bin/bash
@@ -502,6 +549,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SERVICE_NAME="zpython"
 MONITOR_SERVICE_NAME="zpython-monitor"
+GRPC_SERVICE_NAME="zpython-grpc"
 
 echo "项目根目录: $PROJECT_ROOT"
 echo ""
@@ -518,13 +566,19 @@ if [ ! -f "$SCRIPT_DIR/zpython.service" ] || [ ! -f "$SCRIPT_DIR/zpython-monitor
     exit 1
 fi
 
+if [ ! -f "$SCRIPT_DIR/zpython-grpc.service" ]; then
+    echo "错误：gRPC服务文件不存在，请先运行部署脚本生成服务文件"
+    exit 1
+fi
+
 echo "2. 停止并禁用现有服务（如果存在）..."
-sudo systemctl stop $SERVICE_NAME $MONITOR_SERVICE_NAME 2>/dev/null || true
-sudo systemctl disable $SERVICE_NAME $MONITOR_SERVICE_NAME 2>/dev/null || true
+sudo systemctl stop $SERVICE_NAME $MONITOR_SERVICE_NAME $GRPC_SERVICE_NAME 2>/dev/null || true
+sudo systemctl disable $SERVICE_NAME $MONITOR_SERVICE_NAME $GRPC_SERVICE_NAME 2>/dev/null || true
 
 echo "3. 安装服务文件..."
 sudo cp "$SCRIPT_DIR/zpython.service" /etc/systemd/system/
 sudo cp "$SCRIPT_DIR/zpython-monitor.service" /etc/systemd/system/
+sudo cp "$SCRIPT_DIR/zpython-grpc.service" /etc/systemd/system/
 
 echo "4. 重新加载systemd配置..."
 sudo systemctl daemon-reload
@@ -532,11 +586,13 @@ sudo systemctl daemon-reload
 echo "5. 启用服务开机自启..."
 sudo systemctl enable $SERVICE_NAME
 sudo systemctl enable $MONITOR_SERVICE_NAME
+sudo systemctl enable $GRPC_SERVICE_NAME
 
 echo "6. 启动服务..."
 sudo systemctl start $SERVICE_NAME
 sleep 3
 sudo systemctl start $MONITOR_SERVICE_NAME
+sudo systemctl start $GRPC_SERVICE_NAME
 
 echo "7. 检查服务状态..."
 echo ""
@@ -548,21 +604,26 @@ echo "监控服务状态:"
 sudo systemctl status $MONITOR_SERVICE_NAME --no-pager -l
 
 echo ""
+echo "gRPC服务状态:"
+sudo systemctl status $GRPC_SERVICE_NAME --no-pager -l
+
+echo ""
 echo "==========================================="
 echo "  服务安装完成！"
 echo "==========================================="
 echo ""
 echo "服务管理命令："
-echo "  启动服务:   sudo systemctl start $SERVICE_NAME $MONITOR_SERVICE_NAME"
-echo "  停止服务:   sudo systemctl stop $SERVICE_NAME $MONITOR_SERVICE_NAME"
-echo "  重启服务:   sudo systemctl restart $SERVICE_NAME $MONITOR_SERVICE_NAME"
+echo "  启动服务:   sudo systemctl start $SERVICE_NAME $MONITOR_SERVICE_NAME $GRPC_SERVICE_NAME"
+echo "  停止服务:   sudo systemctl stop $SERVICE_NAME $MONITOR_SERVICE_NAME $GRPC_SERVICE_NAME"
+echo "  重启服务:   sudo systemctl restart $SERVICE_NAME $MONITOR_SERVICE_NAME $GRPC_SERVICE_NAME"
 echo "  查看状态:   sudo systemctl status $SERVICE_NAME --no-pager"
 echo "  查看日志:   sudo journalctl -u $SERVICE_NAME -f"
-echo "  开机自启:   sudo systemctl enable $SERVICE_NAME $MONITOR_SERVICE_NAME"
+echo "  开机自启:   sudo systemctl enable $SERVICE_NAME $MONITOR_SERVICE_NAME $GRPC_SERVICE_NAME"
 echo ""
 echo "测试服务："
 echo "  curl http://localhost:{PORT}"
 echo "  curl http://$(hostname -I | awk '{{print $1}}'):{PORT}"
+echo "  gRPC端口: {GRPC_PORT}"
 echo ""
 echo "如果服务启动失败，请检查日志："
 echo "  sudo journalctl -u $SERVICE_NAME -n 50 --no-pager"
@@ -573,6 +634,7 @@ echo "  tail -f {PROJECT_ROOT}/error.log"
     service_files = {
         "zpython.service": systemd_service,
         "zpython-monitor.service": monitor_service,
+        "zpython-grpc.service": grpc_service,
         "install_systemd_service.sh": install_script
     }
     
@@ -632,6 +694,7 @@ def create_deploy_summary():
 - 项目名称: {PROJECT_NAME}
 - 项目路径: {PROJECT_ROOT}
 - 部署端口: {PORT}
+- gRPC端口: {GRPC_PORT}
 - 虚拟环境: {VENV_NAME}
 
 ## 部署状态
@@ -644,6 +707,7 @@ def create_deploy_summary():
 停止脚本: dist/stop_production.sh  
 服务配置: dist/zpython.service
 监控配置: dist/zpython-monitor.service
+gRPC配置: dist/zpython-grpc.service
 安装脚本: dist/install_systemd_service.sh
 
 ## 使用说明
@@ -663,16 +727,16 @@ sudo bash dist/install_systemd_service.sh
 ### 服务管理命令
 ```bash
 # 查看状态
-sudo systemctl status zpython zpython-monitor
+sudo systemctl status zpython zpython-monitor zpython-grpc
 
 # 启动服务
-sudo systemctl start zpython zpython-monitor
+sudo systemctl start zpython zpython-monitor zpython-grpc
 
 # 停止服务  
-sudo systemctl stop zpython zpython-monitor
+sudo systemctl stop zpython zpython-monitor zpython-grpc
 
 # 重启服务
-sudo systemctl restart zpython zpython-monitor
+sudo systemctl restart zpython zpython-monitor zpython-grpc
 
 # 查看日志
 sudo journalctl -u zpython -f

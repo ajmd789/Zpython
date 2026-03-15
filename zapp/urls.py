@@ -73,4 +73,5 @@ urlpatterns = [
     path('api/devices/', views.get_devices_api, name='get_devices_api'),
     path('device_monitor', views.device_monitor, name='device_monitor'),
     path('heartbeat_docs', views.heartbeat_docs, name='heartbeat_docs'),
+    path('heartbeat_docs2', views.heartbeat_docs2, name='heartbeat_docs2'),
 ]
