@@ -1505,3 +1505,9 @@ def api_get_weekly_report(request):
         return JsonResponse({'code': 200, 'data': report, 'message': 'success'})
     except Exception as e:
         return JsonResponse({'code': 500, 'message': str(e)}, status=500)
+
+def tax_calculator(request):
+    """
+    个税计算器页面
+    """
+    return render(request, 'zapp/tax_calculator.html')

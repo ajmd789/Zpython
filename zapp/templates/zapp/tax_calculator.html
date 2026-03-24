@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个税计算器</title>
+    <!-- 引入 Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --primary-hover: #45a049;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-secondary: #666666;
+            --border-color: #e0e0e0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .form-group label {
+            width: 140px;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group select {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 12px 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .highlight {
+            color: #e53935;
+            font-weight: bold;
+        }
+
+        .fade-enter-active, .fade-leave-active {
+            transition: opacity 0.5s;
+        }
+        .fade-enter-from, .fade-leave-to {
+            opacity: 0;
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .flex-col {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .summary-card h3 {
+            margin-bottom: 10px;
+        }
+        .summary-card .amount {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="app" class="container">
+    <div class="header">
+        <h1>💰 个税与工资推算器</h1>
+        <p style="color: #666; margin-top: 10px;">支持渐进式计算、加薪预测及年终奖单独计税</p>
+    </div>
+
+    <!-- 基础输入区域 -->
+    <div class="card">
+        <h2 style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">1. 基础信息录入</h2>
+        <div class="flex-row">
+            <div class="flex-col">
+                <div class="form-group">
+                    <label>税前月薪 (元)</label>
+                    <input type="number" v-model.number="baseSalary" placeholder="请输入税前月薪">
+                </div>
+                <div class="form-group">
+                    <label>专项附加扣除/月</label>
+                    <input type="number" v-model.number="specialDeduction" placeholder="如：子女教育、房租等">
+                </div>
+            </div>
+            <div class="flex-col">
+                <div class="form-group">
+                    <label>公积金比例 (%)</label>
+                    <input type="number" v-model.number="fundRate" placeholder="默认12">
+                </div>
+                <div class="form-group">
+                    <label>社保比例 (%)</label>
+                    <input type="number" v-model.number="socialRate" placeholder="默认10.5 (养老8+医保2+失业0.5)">
+                </div>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 10px;">
+            <button class="btn" @click="calculate">开始推算 1-12 月工资</button>
+        </div>
+    </div>
+
+    <!-- 推算结果表格 -->
+    <transition name="fade">
+        <div class="card" v-if="calculated">
+            <h2 style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">2. 1-12月薪资明细</h2>
+            
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>月份</th>
+                            <th>税前收入</th>
+                            <th>五险一金</th>
+                            <th>专项扣除</th>
+                            <th>本月个税</th>
+                            <th>税后实发</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in monthlyData" :key="item.month">
+                            <td>{{ item.month }}月</td>
+                            <td>{{ item.salary.toFixed(2) }}</td>
+                            <td>{{ item.insurance.toFixed(2) }}</td>
+                            <td>{{ item.special.toFixed(2) }}</td>
+                            <td class="highlight">{{ item.tax.toFixed(2) }}</td>
+                            <td style="font-weight: bold; color: #4CAF50;">{{ item.netIncome.toFixed(2) }}</td>
+                        </tr>
+                        <tr style="background-color: #f0f0f0; font-weight: bold;">
+                            <td>全年合计</td>
+                            <td>{{ totalSalary.toFixed(2) }}</td>
+                            <td>{{ totalInsurance.toFixed(2) }}</td>
+                            <td>{{ totalSpecial.toFixed(2) }}</td>
+                            <td class="highlight">{{ totalTax.toFixed(2) }}</td>
+                            <td style="color: #4CAF50;">{{ totalNetIncome.toFixed(2) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </transition>
+
+    <!-- 高阶功能：加薪与年终奖 -->
+    <transition name="fade">
+        <div v-if="calculated" class="flex-row" style="margin-bottom: 40px;">
+            <!-- 加薪推算 -->
+            <div class="card flex-col">
+                <h2 style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">🚀 加薪推算</h2>
+                <div class="form-group">
+                    <label>加薪金额 (元/月)</label>
+                    <input type="number" v-model.number="raiseAmount" placeholder="请输入预计加薪额">
+                </div>
+                <div class="form-group">
+                    <label>生效月份</label>
+                    <select v-model.number="raiseMonth">
+                        <option v-for="m in 12" :value="m">{{ m }}月</option>
+                    </select>
+                </div>
+                <div style="text-align: right;">
+                    <button class="btn" @click="calculate">重新推算</button>
+                </div>
+            </div>
+
+            <!-- 年终奖推算 -->
+            <div class="card flex-col">
+                <h2 style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">💰 年终奖推算</h2>
+                <p style="font-size: 12px; color: #888; margin-bottom: 10px;">* 采用年终奖单独计税方式</p>
+                <div class="form-group">
+                    <label>预期年终奖 (元)</label>
+                    <input type="number" v-model.number="bonus" placeholder="请输入年终奖总额">
+                </div>
+                
+                <div v-if="bonus > 0" style="margin-top: 15px; background: #f9f9f9; padding: 15px; border-radius: 4px;">
+                    <p>年终奖扣税：<span class="highlight">{{ bonusTax.toFixed(2) }}</span> 元</p>
+                    <p>年终奖实发：<span style="font-weight: bold; color: #4CAF50;">{{ bonusNet.toFixed(2) }}</span> 元</p>
+                </div>
+            </div>
+        </div>
+    </transition>
+
+    <!-- 年度总览 -->
+    <transition name="fade">
+        <div v-if="calculated" class="summary-card">
+            <h3>年度总净收入预计</h3>
+            <div class="amount">￥ {{ (totalNetIncome + bonusNet).toFixed(2) }}</div>
+            <p style="margin-top: 10px; font-size: 14px; opacity: 0.9;">
+                (包含12个月税后工资 + 年终奖税后收入)
+            </p>
+        </div>
+    </transition>
+
+</div>
+
+<script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const baseSalary = ref(10000);
+            const specialDeduction = ref(0);
+            const fundRate = ref(12);
+            const socialRate = ref(10.5);
+            
+            const raiseAmount = ref(0);
+            const raiseMonth = ref(4);
+
+            const bonus = ref(0);
+            const calculated = ref(false);
+
+            const monthlyData = ref([]);
+
+            // IP采集逻辑
+            onMounted(() => {
+                fetch('/apipy/api/pythongetip/', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => console.log('IP recorded:', data))
+                    .catch(err => console.error('IP record failed:', err));
+            });
+
+            // 个税年度综合所得税率表
+            const getComprehensiveTax = (taxableIncome) => {
+                if (taxableIncome <= 0) return 0;
+                if (taxableIncome <= 36000) return taxableIncome * 0.03 - 0;
+                if (taxableIncome <= 144000) return taxableIncome * 0.10 - 2520;
+                if (taxableIncome <= 300000) return taxableIncome * 0.20 - 16920;
+                if (taxableIncome <= 420000) return taxableIncome * 0.25 - 31920;
+                if (taxableIncome <= 660000) return taxableIncome * 0.30 - 52920;
+                if (taxableIncome <= 960000) return taxableIncome * 0.35 - 85920;
+                return taxableIncome * 0.45 - 181920;
+            };
+
+            // 计算主体逻辑 (累计预扣预缴法)
+            const calculate = () => {
+                if (!baseSalary.value || baseSalary.value <= 0) {
+                    alert('请输入有效的税前月薪');
+                    return;
+                }
+
+                let totalIncome = 0;
+                let totalIns = 0;
+                let totalSpec = 0;
+                let totalExempt = 0; // 累计减除费用 (5000/月)
+                let taxPaid = 0;     // 已预缴税额
+
+                let tempMonthly = [];
+
+                for (let i = 1; i <= 12; i++) {
+                    // 确定当月税前薪资
+                    let currentSalary = baseSalary.value;
+                    if (raiseAmount.value > 0 && i >= raiseMonth.value) {
+                        currentSalary += raiseAmount.value;
+                    }
+
+                    // 当月五险一金扣除 (简单以当月工资为基数计算，实际中可能以上年均薪为基数)
+                    let currentIns = currentSalary * (fundRate.value + socialRate.value) / 100;
+                    let currentSpec = specialDeduction.value;
+
+                    // 累计增加
+                    totalIncome += currentSalary;
+                    totalIns += currentIns;
+                    totalSpec += currentSpec;
+                    totalExempt += 5000;
+
+                    // 计算本月累计应纳税所得额
+                    let taxableIncome = totalIncome - totalIns - totalSpec - totalExempt;
+                    if (taxableIncome < 0) taxableIncome = 0;
+
+                    // 计算累计应纳税额
+                    let totalTaxPayable = getComprehensiveTax(taxableIncome);
+
+                    // 本月应扣税
+                    let currentTax = totalTaxPayable - taxPaid;
+                    if (currentTax < 0) currentTax = 0; // 不退税
+                    
+                    taxPaid += currentTax;
+
+                    // 税后实发
+                    let netIncome = currentSalary - currentIns - currentTax;
+
+                    tempMonthly.push({
+                        month: i,
+                        salary: currentSalary,
+                        insurance: currentIns,
+                        special: currentSpec,
+                        tax: currentTax,
+                        netIncome: netIncome
+                    });
+                }
+
+                monthlyData.value = tempMonthly;
+                calculated.value = true;
+            };
+
+            // 统计属性
+            const totalSalary = computed(() => monthlyData.value.reduce((sum, item) => sum + item.salary, 0));
+            const totalInsurance = computed(() => monthlyData.value.reduce((sum, item) => sum + item.insurance, 0));
+            const totalSpecial = computed(() => monthlyData.value.reduce((sum, item) => sum + item.special, 0));
+            const totalTax = computed(() => monthlyData.value.reduce((sum, item) => sum + item.tax, 0));
+            const totalNetIncome = computed(() => monthlyData.value.reduce((sum, item) => sum + item.netIncome, 0));
+
+            // 年终奖单独计税逻辑
+            const bonusTax = computed(() => {
+                if (!bonus.value || bonus.value <= 0) return 0;
+                let b = bonus.value;
+                let monthlyB = b / 12;
+                
+                let tax = 0;
+                if (monthlyB <= 3000) tax = b * 0.03 - 0;
+                else if (monthlyB <= 12000) tax = b * 0.10 - 210;
+                else if (monthlyB <= 25000) tax = b * 0.20 - 1410;
+                else if (monthlyB <= 35000) tax = b * 0.25 - 2660;
+                else if (monthlyB <= 55000) tax = b * 0.30 - 4410;
+                else if (monthlyB <= 80000) tax = b * 0.35 - 7160;
+                else tax = b * 0.45 - 15160;
+
+                return tax > 0 ? tax : 0;
+            });
+
+            const bonusNet = computed(() => {
+                if (!bonus.value || bonus.value <= 0) return 0;
+                return bonus.value - bonusTax.value;
+            });
+
+            return {
+                baseSalary, specialDeduction, fundRate, socialRate,
+                raiseAmount, raiseMonth, bonus, calculated,
+                monthlyData, calculate,
+                totalSalary, totalInsurance, totalSpecial, totalTax, totalNetIncome,
+                bonusTax, bonusNet
+            }
+        }
+    }).mount('#app')
+</script>
+
+</body>
+</html>
