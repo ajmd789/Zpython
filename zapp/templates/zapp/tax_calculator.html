@@ -162,18 +162,30 @@
                     <input type="number" v-model.number="baseSalary" placeholder="请输入税前月薪">
                 </div>
                 <div class="form-group">
+                    <label>社保缴费基数</label>
+                    <input type="number" v-model="socialBase" placeholder="留空默认同月薪 (如:32591.6)">
+                </div>
+                <div class="form-group">
+                    <label>公积金缴费基数</label>
+                    <input type="number" v-model="fundBase" placeholder="留空默认同月薪 (如:32566.67)">
+                </div>
+                <div class="form-group">
                     <label>专项附加扣除/月</label>
                     <input type="number" v-model.number="specialDeduction" placeholder="如：子女教育、房租等">
                 </div>
             </div>
             <div class="flex-col">
                 <div class="form-group">
+                    <label>社保比例 (%)</label>
+                    <input type="number" v-model.number="socialRate" placeholder="默认10.5 (养老8+医保2+失业0.5)">
+                </div>
+                <div class="form-group">
                     <label>公积金比例 (%)</label>
                     <input type="number" v-model.number="fundRate" placeholder="默认12">
                 </div>
                 <div class="form-group">
-                    <label>社保比例 (%)</label>
-                    <input type="number" v-model.number="socialRate" placeholder="默认10.5 (养老8+医保2+失业0.5)">
+                    <label>其它扣款(税后)</label>
+                    <input type="number" v-model.number="otherDeduction" placeholder="如：爱心基金5元等">
                 </div>
             </div>
         </div>
@@ -195,6 +207,7 @@
                             <th>税前收入</th>
                             <th>五险一金</th>
                             <th>专项扣除</th>
+                            <th v-if="otherDeduction > 0">其它扣款</th>
                             <th>本月个税</th>
                             <th>税后实发</th>
                         </tr>
@@ -205,6 +218,7 @@
                             <td>{{ item.salary.toFixed(2) }}</td>
                             <td>{{ item.insurance.toFixed(2) }}</td>
                             <td>{{ item.special.toFixed(2) }}</td>
+                            <td v-if="otherDeduction > 0">{{ item.other.toFixed(2) }}</td>
                             <td class="highlight">{{ item.tax.toFixed(2) }}</td>
                             <td style="font-weight: bold; color: #4CAF50;">{{ item.netIncome.toFixed(2) }}</td>
                         </tr>
@@ -213,6 +227,7 @@
                             <td>{{ totalSalary.toFixed(2) }}</td>
                             <td>{{ totalInsurance.toFixed(2) }}</td>
                             <td>{{ totalSpecial.toFixed(2) }}</td>
+                            <td v-if="otherDeduction > 0">{{ totalOther.toFixed(2) }}</td>
                             <td class="highlight">{{ totalTax.toFixed(2) }}</td>
                             <td style="color: #4CAF50;">{{ totalNetIncome.toFixed(2) }}</td>
                         </tr>
@@ -278,8 +293,11 @@
 
     createApp({
         setup() {
-            const baseSalary = ref(10000);
+            const baseSalary = ref('');
+            const socialBase = ref(32591.6);
+            const fundBase = ref(32566.67);
             const specialDeduction = ref(0);
+            const otherDeduction = ref(5);
             const fundRate = ref(12);
             const socialRate = ref(10.5);
             
@@ -333,9 +351,17 @@
                         currentSalary += raiseAmount.value;
                     }
 
-                    // 当月五险一金扣除 (简单以当月工资为基数计算，实际中可能以上年均薪为基数)
-                    let currentIns = currentSalary * (fundRate.value + socialRate.value) / 100;
-                    let currentSpec = specialDeduction.value;
+                    // 确定社保和公积金基数 (如果有输入则使用输入的基数，否则使用当月工资)
+                    let sBase = socialBase.value !== '' && socialBase.value !== null ? parseFloat(socialBase.value) : currentSalary;
+                    let fBase = fundBase.value !== '' && fundBase.value !== null ? parseFloat(fundBase.value) : currentSalary;
+
+                    // 当月五险一金扣除 (精确到分)
+                    let currentSocialIns = Math.round(sBase * (socialRate.value / 100) * 100) / 100;
+                    let currentFundIns = Math.round(fBase * (fundRate.value / 100) * 100) / 100;
+                    let currentIns = currentSocialIns + currentFundIns;
+                    
+                    let currentSpec = specialDeduction.value || 0;
+                    let currentOther = otherDeduction.value || 0;
 
                     // 累计增加
                     totalIncome += currentSalary;
@@ -348,7 +374,7 @@
                     if (taxableIncome < 0) taxableIncome = 0;
 
                     // 计算累计应纳税额
-                    let totalTaxPayable = getComprehensiveTax(taxableIncome);
+                    let totalTaxPayable = Math.round(getComprehensiveTax(taxableIncome) * 100) / 100;
 
                     // 本月应扣税
                     let currentTax = totalTaxPayable - taxPaid;
@@ -356,14 +382,15 @@
                     
                     taxPaid += currentTax;
 
-                    // 税后实发
-                    let netIncome = currentSalary - currentIns - currentTax;
+                    // 税后实发 (减去五险一金、个税、以及税后的其它扣款)
+                    let netIncome = currentSalary - currentIns - currentTax - currentOther;
 
                     tempMonthly.push({
                         month: i,
                         salary: currentSalary,
                         insurance: currentIns,
                         special: currentSpec,
+                        other: currentOther,
                         tax: currentTax,
                         netIncome: netIncome
                     });
@@ -377,6 +404,7 @@
             const totalSalary = computed(() => monthlyData.value.reduce((sum, item) => sum + item.salary, 0));
             const totalInsurance = computed(() => monthlyData.value.reduce((sum, item) => sum + item.insurance, 0));
             const totalSpecial = computed(() => monthlyData.value.reduce((sum, item) => sum + item.special, 0));
+            const totalOther = computed(() => monthlyData.value.reduce((sum, item) => sum + item.other, 0));
             const totalTax = computed(() => monthlyData.value.reduce((sum, item) => sum + item.tax, 0));
             const totalNetIncome = computed(() => monthlyData.value.reduce((sum, item) => sum + item.netIncome, 0));
 
@@ -404,10 +432,10 @@
             });
 
             return {
-                baseSalary, specialDeduction, fundRate, socialRate,
+                baseSalary, socialBase, fundBase, specialDeduction, otherDeduction, fundRate, socialRate,
                 raiseAmount, raiseMonth, bonus, calculated,
                 monthlyData, calculate,
-                totalSalary, totalInsurance, totalSpecial, totalTax, totalNetIncome,
+                totalSalary, totalInsurance, totalSpecial, totalOther, totalTax, totalNetIncome,
                 bonusTax, bonusNet
             }
         }
