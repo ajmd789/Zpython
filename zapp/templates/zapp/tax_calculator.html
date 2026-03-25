@@ -24,11 +24,12 @@
         }
 
         body {
-            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             line-height: 1.6;
-            padding: 20px;
+            padding: 10px;
+            font-size: 14px;
         }
 
         .container {
@@ -38,69 +39,98 @@
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
         }
 
         .card {
             background-color: var(--card-bg);
             border-radius: 8px;
-            padding: 24px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 24px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 16px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 8px;
         }
 
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             flex-wrap: wrap;
         }
 
         .form-group label {
-            width: 140px;
+            width: 100%;
             font-weight: bold;
+            margin-bottom: 4px;
+            color: var(--text-secondary);
         }
 
         .form-group input, .form-group select {
-            flex: 1;
-            min-width: 200px;
+            width: 100%;
             padding: 10px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 16px;
+            /* 阻止iOS缩放 */
+            appearance: none;
+            -webkit-appearance: none;
         }
 
         .btn {
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 12px 24px;
+            padding: 12px 20px;
             border-radius: 4px;
             font-size: 16px;
             cursor: pointer;
             transition: background-color 0.3s;
-            display: inline-block;
+            display: block;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
         }
 
         .btn:hover {
             background-color: var(--primary-hover);
         }
 
+        /* 表格容器允许横向滚动 */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         table {
             width: 100%;
+            min-width: 600px; /* 保证表格在移动端不被过度挤压 */
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 10px;
+            font-size: 13px;
         }
 
         th, td {
             border: 1px solid var(--border-color);
-            padding: 12px 8px;
+            padding: 10px 6px;
             text-align: center;
+            white-space: nowrap;
         }
 
         th {
             background-color: #f8f9fa;
             font-weight: bold;
+            color: var(--text-secondary);
         }
 
         .highlight {
@@ -117,12 +147,11 @@
 
         .flex-row {
             display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 16px;
         }
         .flex-col {
             flex: 1;
-            min-width: 300px;
         }
 
         .summary-card {
@@ -131,16 +160,67 @@
             text-align: center;
             padding: 20px;
             border-radius: 8px;
-            margin-top: 20px;
+            margin-top: 16px;
+            box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
         }
         .summary-card h3 {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: normal;
         }
         .summary-card .amount {
-            font-size: 28px;
+            font-size: 32px;
             font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
 
+        /* PC端适配覆盖 */
+        @media (min-width: 768px) {
+            body {
+                padding: 20px;
+                font-size: 16px;
+            }
+            .header h1 {
+                font-size: 28px;
+            }
+            .card {
+                padding: 24px;
+                margin-bottom: 24px;
+            }
+            .card h2 {
+                font-size: 20px;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+            }
+            .flex-row {
+                flex-direction: row;
+                gap: 24px;
+            }
+            .form-group {
+                flex-wrap: nowrap;
+                margin-bottom: 16px;
+            }
+            .form-group label {
+                width: 140px;
+                margin-bottom: 0;
+            }
+            .form-group input, .form-group select {
+                flex: 1;
+                width: auto;
+            }
+            .btn {
+                display: inline-block;
+                width: auto;
+                padding: 12px 32px;
+            }
+            table {
+                font-size: 14px;
+                min-width: auto;
+            }
+            th, td {
+                padding: 12px 8px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -163,21 +243,21 @@
                 </div>
                 <div class="form-group">
                     <label>社保缴费基数</label>
-                    <input type="number" v-model="socialBase" placeholder="留空默认同月薪 (如:32591.6)">
+                    <input type="number" v-model="socialBase" placeholder="留空默认同月薪">
                 </div>
                 <div class="form-group">
                     <label>公积金缴费基数</label>
-                    <input type="number" v-model="fundBase" placeholder="留空默认同月薪 (如:32566.67)">
+                    <input type="number" v-model="fundBase" placeholder="留空默认同月薪">
                 </div>
                 <div class="form-group">
                     <label>专项附加扣除/月</label>
-                    <input type="number" v-model.number="specialDeduction" placeholder="如：子女教育、房租等">
+                    <input type="number" v-model.number="specialDeduction" placeholder="如：子女教育等">
                 </div>
             </div>
             <div class="flex-col">
                 <div class="form-group">
                     <label>社保比例 (%)</label>
-                    <input type="number" v-model.number="socialRate" placeholder="默认10.5 (养老8+医保2+失业0.5)">
+                    <input type="number" v-model.number="socialRate" placeholder="默认10.5">
                 </div>
                 <div class="form-group">
                     <label>公积金比例 (%)</label>
@@ -185,7 +265,7 @@
                 </div>
                 <div class="form-group">
                     <label>其它扣款(税后)</label>
-                    <input type="number" v-model.number="otherDeduction" placeholder="如：爱心基金5元等">
+                    <input type="number" v-model.number="otherDeduction" placeholder="如：爱心基金">
                 </div>
             </div>
         </div>
@@ -197,9 +277,9 @@
     <!-- 推算结果表格 -->
     <transition name="fade">
         <div class="card" v-if="calculated">
-            <h2 style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">2. 1-12月薪资明细</h2>
+            <h2>2. 1-12月薪资明细</h2>
             
-            <div style="overflow-x: auto;">
+            <div class="table-container">
                 <table>
                     <thead>
                         <tr>
@@ -239,10 +319,10 @@
 
     <!-- 高阶功能：加薪与年终奖 -->
     <transition name="fade">
-        <div v-if="calculated" class="flex-row" style="margin-bottom: 40px;">
+        <div v-if="calculated" class="flex-row" style="margin-bottom: 20px;">
             <!-- 加薪推算 -->
             <div class="card flex-col">
-                <h2 style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">🚀 加薪推算</h2>
+                <h2>🚀 加薪推算</h2>
                 <div class="form-group">
                     <label>加薪金额 (元/月)</label>
                     <input type="number" v-model.number="raiseAmount" placeholder="请输入预计加薪额">
@@ -253,14 +333,14 @@
                         <option v-for="m in 12" :value="m">{{ m }}月</option>
                     </select>
                 </div>
-                <div style="text-align: right;">
+                <div style="text-align: right; margin-top: 10px;">
                     <button class="btn" @click="calculate">重新推算</button>
                 </div>
             </div>
 
             <!-- 年终奖推算 -->
             <div class="card flex-col">
-                <h2 style="margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">💰 年终奖推算</h2>
+                <h2>💰 年终奖推算</h2>
                 <p style="font-size: 12px; color: #888; margin-bottom: 10px;">* 采用年终奖单独计税方式</p>
                 <div class="form-group">
                     <label>预期年终奖 (元)</label>
