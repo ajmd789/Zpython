@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>起始页</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-color: #999999;
+            --icon-bg: #333333;
+            --hover-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px 10px;
+        }
+
+        .item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            position: relative;
+        }
+
+        .icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background-color: var(--icon-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: #ffffff;
+            margin-bottom: 8px;
+            transition: transform 0.2s;
+            overflow: hidden;
+        }
+
+        .item:hover .icon {
+            transform: scale(1.05);
+            background-color: var(--hover-bg);
+        }
+
+        .title {
+            font-size: 12px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+
+        .add-btn .icon {
+            background-color: transparent;
+            border: 1px dashed var(--text-color);
+            color: var(--text-color);
+        }
+
+        /* 模态框样式 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal {
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .modal h3 {
+            margin-top: 0;
+            color: #fff;
+            font-size: 16px;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        .modal .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-cancel {
+            background: #333;
+            color: #fff;
+        }
+
+        .btn-save {
+            background: #007aff;
+            color: #fff;
+        }
+        
+        .btn-delete {
+            background: #ff3b30;
+            color: #fff;
+            margin-right: auto;
+        }
+
+        /* 颜色预设，用于图标背景 */
+        .color-0 { background-color: #5d7e8a; }
+        .color-1 { background-color: #8a7e5d; }
+        .color-2 { background-color: #7e5d8a; }
+        .color-3 { background-color: #5d8a6e; }
+        .color-4 { background-color: #8a5d6e; }
+        .color-5 { background-color: #4a6b8c; }
+        
+        /* Context Menu */
+        .context-menu {
+            display: none;
+            position: fixed;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 5px 0;
+            z-index: 1000;
+            min-width: 100px;
+        }
+        .context-menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            color: #fff;
+            font-size: 14px;
+        }
+        .context-menu-item:hover {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="grid" id="grid">
+            <!-- 书签列表由 JS 渲染 -->
+        </div>
+    </div>
+
+    <!-- 添加/编辑模态框 -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h3 id="modalTitle">添加书签</h3>
+            <input type="hidden" id="bmId">
+            <input type="text" id="bmUrl" placeholder="URL (必填, 例: https://v2ex.com)" autocomplete="off">
+            <input type="text" id="bmName" placeholder="标题 (选填, 留空自动获取)" autocomplete="off">
+            <div class="actions">
+                <button class="btn-delete" id="btnDelete" style="display:none;">删除</button>
+                <button class="btn-cancel" onclick="closeModal()">取消</button>
+                <button class="btn-save" onclick="saveBookmark()">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右键菜单 -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" id="menuEdit">编辑</div>
+        <div class="context-menu-item" id="menuDelete">删除</div>
+    </div>
+
+    <script>
+        const API_URL = '/apipy/api/bookmarks/';
+        const CACHE_KEY = 'bookmarkCache';
+        let bookmarks = [];
+        let contextTargetId = null;
+
+        // 颜色计算函数，基于标题第一个字符计算一个固定的颜色索引
+        function getColorClass(title) {
+            if (!title) return 'color-0';
+            let sum = 0;
+            for(let i=0; i<title.length; i++) {
+                sum += title.charCodeAt(i);
+            }
+            return 'color-' + (sum % 6);
+        }
+
+        // 渲染书签
+        function renderBookmarks(data) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            data.forEach(bm => {
+                const item = document.createElement('a');
+                item.className = 'item';
+                item.href = bm.url;
+                
+                // 右键菜单事件
+                item.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    showContextMenu(e.pageX, e.pageY, bm.id);
+                });
+
+                const icon = document.createElement('div');
+                icon.className = `icon ${getColorClass(bm.title)}`;
+                icon.textContent = bm.title ? bm.title.charAt(0).toUpperCase() : '?';
+
+                const title = document.createElement('div');
+                title.className = 'title';
+                title.textContent = bm.title || bm.url;
+
+                item.appendChild(icon);
+                item.appendChild(title);
+                grid.appendChild(item);
+            });
+
+            // 添加按钮
+            const addBtn = document.createElement('div');
+            addBtn.className = 'item add-btn';
+            addBtn.onclick = () => openModal();
+            
+            const addIcon = document.createElement('div');
+            addIcon.className = 'icon';
+            addIcon.textContent = '+';
+            
+            const addTitle = document.createElement('div');
+            addTitle.className = 'title';
+            addTitle.textContent = '添加';
+
+            addBtn.appendChild(addIcon);
+            addBtn.appendChild(addTitle);
+            grid.appendChild(addBtn);
+        }
+
+        // 初始化加载
+        function init() {
+            // 1. 优先读取本地缓存渲染
+            const cached = localStorage.getItem(CACHE_KEY);
+            if (cached) {
+                try {
+                    bookmarks = JSON.parse(cached);
+                    renderBookmarks(bookmarks);
+                } catch(e) {}
+            }
+
+            // 2. 请求最新数据
+            fetchBookmarks();
+            
+            // 点击空白处关闭右键菜单
+            document.addEventListener('click', () => {
+                document.getElementById('contextMenu').style.display = 'none';
+            });
+        }
+
+        // 获取最新书签数据
+        function fetchBookmarks() {
+            fetch(API_URL)
+                .then(res => res.json())
+                .then(res => {
+                    if (res.code === 200) {
+                        bookmarks = res.data;
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(bookmarks));
+                        renderBookmarks(bookmarks);
+                    }
+                })
+                .catch(err => console.error('Fetch error:', err));
+        }
+
+        // 打开模态框
+        function openModal(bmId = null) {
+            document.getElementById('modalOverlay').style.display = 'flex';
+            document.getElementById('bmId').value = bmId || '';
+            document.getElementById('btnDelete').style.display = bmId ? 'block' : 'none';
+            
+            if (bmId) {
+                const bm = bookmarks.find(b => b.id === bmId);
+                if (bm) {
+                    document.getElementById('modalTitle').textContent = '编辑书签';
+                    document.getElementById('bmUrl').value = bm.url;
+                    document.getElementById('bmName').value = bm.title;
+                }
+            } else {
+                document.getElementById('modalTitle').textContent = '添加书签';
+                document.getElementById('bmUrl').value = '';
+                document.getElementById('bmName').value = '';
+            }
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
+        }
+
+        // 保存书签 (新增/修改)
+        function saveBookmark() {
+            const id = document.getElementById('bmId').value;
+            const url = document.getElementById('bmUrl').value;
+            const title = document.getElementById('bmName').value;
+
+            if (!url) {
+                alert("URL不能为空");
+                return;
+            }
+
+            const method = id ? 'PUT' : 'POST';
+            const payload = id ? { id: parseInt(id), url, title } : { url, title };
+
+            const btn = document.querySelector('.btn-save');
+            btn.textContent = '保存中...';
+            btn.disabled = true;
+
+            fetch(API_URL, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    closeModal();
+                    fetchBookmarks(); // 刷新列表
+                } else {
+                    alert(res.message || "操作失败");
+                }
+            })
+            .catch(err => {
+                alert("网络错误");
+                console.error(err);
+            })
+            .finally(() => {
+                btn.textContent = '保存';
+                btn.disabled = false;
+            });
+        }
+
+        // 删除按钮点击
+        document.getElementById('btnDelete').addEventListener('click', () => {
+            const id = document.getElementById('bmId').value;
+            if (id && confirm('确定要删除这个书签吗？')) {
+                deleteBookmark(parseInt(id));
+                closeModal();
+            }
+        });
+
+        // 删除书签
+        function deleteBookmark(id) {
+            fetch(API_URL, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: id })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.code === 200) {
+                    fetchBookmarks();
+                } else {
+                    alert(res.message || "删除失败");
+                }
+            })
+            .catch(err => console.error(err));
+        }
+        
+        // 右键菜单逻辑
+        function showContextMenu(x, y, id) {
+            const menu = document.getElementById('contextMenu');
+            menu.style.left = x + 'px';
+            menu.style.top = y + 'px';
+            menu.style.display = 'block';
+            contextTargetId = id;
+        }
+        
+        document.getElementById('menuEdit').addEventListener('click', () => {
+            if(contextTargetId) openModal(contextTargetId);
+        });
+        
+        document.getElementById('menuDelete').addEventListener('click', () => {
+            if(contextTargetId && confirm('确定要删除这个书签吗？')) {
+                deleteBookmark(contextTargetId);
+            }
+        });
+
+        // 启动
+        init();
+    </script>
+</body>
+</html>

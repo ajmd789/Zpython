@@ -1506,6 +1506,69 @@ def api_get_weekly_report(request):
     except Exception as e:
         return JsonResponse({'code': 500, 'message': str(e)}, status=500)
 
+from .services.bookmark_service import bookmark_service
+
+def bookmarks_page(request):
+    """
+    浏览器启动页书签页面
+    """
+    return render(request, 'zapp/bookmarks.html')
+
+@csrf_exempt
+def bookmarks_api(request):
+    """
+    书签CRUD接口
+    """
+    if request.method == 'GET':
+        try:
+            bookmarks = bookmark_service.get_all_bookmarks()
+            return JsonResponse({"code": 200, "data": bookmarks, "message": "success"})
+        except Exception as e:
+            return JsonResponse({"code": 500, "data": None, "message": str(e)})
+            
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            url = data.get('url')
+            title = data.get('title')
+            new_bookmark = bookmark_service.add_bookmark(url, title)
+            return JsonResponse({"code": 200, "data": new_bookmark, "message": "created"})
+        except ValueError as e:
+            return JsonResponse({"code": 400, "data": None, "message": str(e)})
+        except Exception as e:
+            return JsonResponse({"code": 500, "data": None, "message": str(e)})
+            
+    elif request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            bm_id = data.get('id')
+            url = data.get('url')
+            title = data.get('title')
+            if not bm_id:
+                return JsonResponse({"code": 400, "data": None, "message": "id is required"})
+            bookmark_service.update_bookmark(bm_id, url, title)
+            return JsonResponse({"code": 200, "data": None, "message": "updated"})
+        except ValueError as e:
+            return JsonResponse({"code": 400, "data": None, "message": str(e)})
+        except Exception as e:
+            return JsonResponse({"code": 500, "data": None, "message": str(e)})
+            
+    elif request.method == 'DELETE':
+        try:
+            data = json.loads(request.body)
+            bm_id = data.get('id')
+            if not bm_id:
+                return JsonResponse({"code": 400, "data": None, "message": "id is required"})
+            success = bookmark_service.delete_bookmark(bm_id)
+            if success:
+                return JsonResponse({"code": 200, "data": None, "message": "deleted"})
+            else:
+                return JsonResponse({"code": 404, "data": None, "message": "bookmark not found"})
+        except Exception as e:
+            return JsonResponse({"code": 500, "data": None, "message": str(e)})
+            
+    return JsonResponse({"code": 405, "data": None, "message": "Method not allowed"})
+
 def tax_calculator(request):
     """
     个税计算器页面
