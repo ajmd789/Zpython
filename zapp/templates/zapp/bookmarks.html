@@ -231,7 +231,15 @@
             data.forEach(bm => {
                 const item = document.createElement('a');
                 item.className = 'item';
-                item.href = bm.url;
+                
+                // 确保 url 包含协议，防止被浏览器当成相对路径拼接
+                let finalUrl = bm.url;
+                if (!/^https?:\/\//i.test(finalUrl)) {
+                    finalUrl = 'http://' + finalUrl;
+                }
+                item.href = finalUrl;
+                item.target = '_blank';
+                item.rel = 'noopener noreferrer';
                 
                 // 右键菜单事件
                 item.addEventListener('contextmenu', (e) => {
