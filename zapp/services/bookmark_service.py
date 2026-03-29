@@ -4,6 +4,8 @@ import os
 import logging
 import requests
 import re
+import unicodedata
+from urllib.parse import urlparse
 from datetime import datetime
 from django.utils import timezone
 
@@ -42,8 +44,34 @@ class BookmarkService:
         beijing_time = utc_time.astimezone(timezone.get_current_timezone())
         return beijing_time.strftime('%Y-%m-%d %H:%M:%S')
 
+    def _truncate_title(self, title, max_width=12):
+        """截断标题以适应图标宽度：中文字符宽度计2，英文字符宽度计1，最多6个汉字或12个英文字符"""
+        if not title:
+            return title
+            
+        current_width = 0
+        result = []
+        for char in title:
+            if unicodedata.east_asian_width(char) in ('F', 'W', 'A'):
+                current_width += 2
+            else:
+                current_width += 1
+            
+            if current_width > max_width:
+                break
+            result.append(char)
+            
+        return ''.join(result).strip()
+
     def _fetch_title_from_url(self, url):
         """从网页抓取title标签内容"""
+        fallback_title = url
+        try:
+            parsed = urlparse(url if url.startswith(('http://', 'https://')) else 'http://' + url)
+            fallback_title = parsed.netloc or url
+        except Exception:
+            pass
+
         try:
             if not url.startswith(('http://', 'https://')):
                 url = 'http://' + url
@@ -60,11 +88,12 @@ class BookmarkService:
                 title = match.group(1).strip()
                 # 简单清理可能含有的换行和多余空格
                 title = re.sub(r'\s+', ' ', title)
-                return title if title else url
-            return url
+                if title:
+                    return self._truncate_title(title)
+            return self._truncate_title(fallback_title)
         except Exception as e:
             logger.warning(f"Failed to fetch title for {url}: {str(e)}")
-            return url
+            return self._truncate_title(fallback_title)
 
     def get_all_bookmarks(self):
         """获取所有书签"""
