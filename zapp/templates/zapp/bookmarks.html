@@ -46,6 +46,9 @@
             text-decoration: none;
             color: inherit;
             position: relative;
+            -webkit-touch-callout: none; /* 禁用系统默认菜单 */
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         .icon {
@@ -242,7 +245,32 @@
                 item.target = '_blank';
                 item.rel = 'noopener noreferrer';
                 
-                // 右键菜单事件
+                // 移动端长按逻辑
+                let pressTimer;
+                let isDragging = false;
+                
+                item.addEventListener('touchstart', (e) => {
+                    isDragging = false;
+                    pressTimer = setTimeout(() => {
+                        e.preventDefault(); // 阻止默认长按行为
+                        showContextMenu(e.touches[0].clientX, e.touches[0].clientY, bm.id);
+                    }, 600); // 600ms算作长按
+                });
+
+                item.addEventListener('touchmove', () => {
+                    isDragging = true;
+                    clearTimeout(pressTimer);
+                });
+
+                item.addEventListener('touchend', (e) => {
+                    clearTimeout(pressTimer);
+                    // 如果不是拖动，且菜单显示了，阻止触发点击跳转
+                    if (!isDragging && document.getElementById('contextMenu').style.display === 'block') {
+                        e.preventDefault();
+                    }
+                });
+
+                // PC端右键菜单事件
                 item.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     showContextMenu(e.pageX, e.pageY, bm.id);
