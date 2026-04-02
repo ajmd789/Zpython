@@ -76,6 +76,8 @@ urlpatterns = [
     path('heartbeat_docs2', views.heartbeat_docs2, name='heartbeat_docs2'),
     # 个税计算器页面
     path('tax_calculator', views.tax_calculator, name='tax_calculator'),
+    # 紧急备份接口
+    path('api/backup/download/', views.backup_download, name='backup_download'),
     # 浏览器启动页书签
     path('bookmarks', views.bookmarks_page, name='bookmarks_page'),
     path('api/bookmarks/', views.bookmarks_api, name='bookmarks_api'),
