@@ -14,7 +14,10 @@ DB_PATH = None
 
 # 使用相对路径以确保在不同环境下都能正常工作
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.path.join(BASE_DIR, 'accounting.db')
+if os.name == 'nt':
+    DB_PATH = os.path.join(BASE_DIR, 'accounting.db')
+else:
+    DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
 logger.info(f"Using fixed database path: {DB_PATH}")
 
 class StockCodeService:

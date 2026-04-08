@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 # 数据库路径
 # 使用相对路径以确保在不同环境下都能正常工作
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.path.join(BASE_DIR, 'accounting.db')
+if os.name == 'nt':
+    DB_PATH = os.path.join(BASE_DIR, 'accounting.db')
+else:
+    DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
 
 # Windows路径兼容
 WINDOWS_DB_PATH = DB_PATH

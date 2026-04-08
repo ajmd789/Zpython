@@ -12,7 +12,10 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.path.join(BASE_DIR, 'accounting.db')
+if os.name == 'nt':
+    DB_PATH = os.path.join(BASE_DIR, 'accounting.db')
+else:
+    DB_PATH = '/var/codes/deploy/backend/backendCodes/the-go/accounting.db'
 
 class BookmarkService:
     def __init__(self):
