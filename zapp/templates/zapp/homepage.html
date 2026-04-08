@@ -489,6 +489,12 @@
       <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect fill='%23FFD700' width='40' height='44' x='4' y='2' stroke='%23000' stroke-width='2'/%3E%3Crect fill='%23FFF' width='32' height='10' x='8' y='6' stroke='%23000' stroke-width='2'/%3E%3Ccircle fill='%23000' cx='14' cy='24' r='3'/%3E%3Ccircle fill='%23000' cx='24' cy='24' r='3'/%3E%3Ccircle fill='%23000' cx='34' cy='24' r='3'/%3E%3Ccircle fill='%23000' cx='14' cy='32' r='3'/%3E%3Ccircle fill='%23000' cx='24' cy='32' r='3'/%3E%3Ccircle fill='%23000' cx='34' cy='32' r='3'/%3E%3Ccircle fill='%23000' cx='14' cy='40' r='3'/%3E%3Ccircle fill='%23000' cx='24' cy='40' r='3'/%3E%3Ccircle fill='%23000' cx='34' cy='40' r='3'/%3E%3C/svg%3E" alt="个税计算器">
       <span class="icon-label">个税计算器.exe</span>
     </div>
+
+    <!-- 炫酷渐变图标 -->
+    <div class="icon" onclick="window.open('/apipy/gradient', '_blank')">
+      <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23ee7752'/%3E%3Cstop offset='33%25' stop-color='%23e73c7e'/%3E%3Cstop offset='66%25' stop-color='%2323a6d5'/%3E%3Cstop offset='100%25' stop-color='%2323d5ab'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23grad)' width='48' height='48' rx='8'/%3E%3Ccircle fill='%23ffffff' cx='24' cy='24' r='10' opacity='0.8'/%3E%3C/svg%3E" alt="炫酷渐变">
+      <span class="icon-label">炫酷渐变.html</span>
+    </div>
   </div>
 
   <!-- About Me Window -->
@@ -781,6 +787,7 @@
               icon: '📁',
               submenu: [
                 { id: 'notepad', name: 'Notepad', icon: '📝', action: () => openWindow('about-window') },
+                { id: 'gradient', name: '炫酷渐变', icon: '🌈', action: () => window.open('/apipy/gradient', '_blank') },
                 { id: 'medication', name: 'Medication Tracker', icon: '💊', action: () => window.open('/apipy/medication_tracker', '_blank') },
                 { id: 'paint', name: 'Paint', icon: '🎨', action: () => alert('MS Paint - Coming Soon!') },
                 { id: 'calculator', name: '个税计算器', icon: '🔢', action: () => window.open('/apipy/tax_calculator', '_blank') },

@@ -1574,3 +1574,10 @@ def tax_calculator(request):
     个税计算器页面
     """
     return render(request, 'zapp/tax_calculator.html')
+
+def gradient_page(request):
+    """
+    炫酷渐变背景页面
+    """
+    return render(request, 'zapp/gradient_page.html')
+

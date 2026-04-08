@@ -79,4 +79,6 @@ urlpatterns = [
     # 浏览器启动页书签
     path('bookmarks', views.bookmarks_page, name='bookmarks_page'),
     path('api/bookmarks/', views.bookmarks_api, name='bookmarks_api'),
+    # 炫酷渐变页面
+    path('gradient', views.gradient_page, name='gradient_page'),
 ]
