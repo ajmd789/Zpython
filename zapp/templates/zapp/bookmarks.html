@@ -332,12 +332,53 @@
                 .then(res => res.json())
                 .then(res => {
                     if (res.code === 200) {
-                        bookmarks = res.data;
+                        const backendBookmarks = res.data || [];
+                        
+                        // 从本地缓存读取旧数据进行合并
+                        let localBookmarks = [];
+                        const cached = localStorage.getItem(CACHE_KEY);
+                        if (cached) {
+                            try {
+                                localBookmarks = JSON.parse(cached) || [];
+                            } catch(e) {}
+                        }
+                        
+                        // 合并逻辑：以后端数据为主，但如果本地有后端没有的URL，则保留本地的数据
+                        // 这样即使后端数据库丢失，本地的缓存数据也不会消失
+                        const backendUrls = new Set(backendBookmarks.map(b => b.url));
+                        const mergedBookmarks = [...backendBookmarks];
+                        
+                        localBookmarks.forEach(localBm => {
+                            if (localBm && localBm.url && !backendUrls.has(localBm.url)) {
+                                // 如果本地存在但后端不存在，将本地的添加到合并列表中
+                                // (注意：由于本地是旧数据，可能id和后端的有冲突，这里可以暂时保留id，
+                                // 因为修改/删除时还是通过id操作，若后端没有这个id可能会报错，建议用户手动重新编辑一次)
+                                mergedBookmarks.push(localBm);
+                            }
+                        });
+                        
+                        bookmarks = mergedBookmarks;
                         localStorage.setItem(CACHE_KEY, JSON.stringify(bookmarks));
                         renderBookmarks(bookmarks);
+                        
+                        // 可选：如果发现有本地存在而后端不存在的数据，可以在后台静默同步到后端
+                        syncLocalToBackend(localBookmarks, backendUrls);
                     }
                 })
                 .catch(err => console.error('Fetch error:', err));
+        }
+
+        // 将本地特有的数据静默同步到后端
+        function syncLocalToBackend(localBookmarks, backendUrls) {
+            localBookmarks.forEach(localBm => {
+                if (localBm && localBm.url && !backendUrls.has(localBm.url)) {
+                    fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: localBm.url, title: localBm.title || '' })
+                    }).catch(e => console.error('Sync error for', localBm.url, e));
+                }
+            });
         }
 
         // 打开模态框
